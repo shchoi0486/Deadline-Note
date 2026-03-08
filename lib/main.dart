@@ -12,6 +12,9 @@ import 'src/state/app_state_scope.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await MobileAds.instance.initialize();
+  await MobileAds.instance.updateRequestConfiguration(
+    RequestConfiguration(testDeviceIds: ["F826AD408ACD78280C4BF64A87A7D31E"]),
+  );
 
   final notifications = await NotificationsService.create();
   final appState = AppState(
@@ -20,7 +23,6 @@ Future<void> main() async {
     shareService: ShareService(),
     parser: JobLinkParser(),
   );
-  await appState.init();
 
   runApp(AppStateScope(notifier: appState, child: const DeadlineNoteApp()));
 }

@@ -33,6 +33,8 @@ class StorageService {
   static const _settingsKey = 'settings.v1';
   static const _vaultFilesKey = 'vault_files.v1';
   static const _memosKey = 'memos.v1';
+  static const _companyNotesKey = 'company_notes.v1';
+  static const _interviewSessionsKey = 'interview_sessions.v1';
 
   Future<List<JobDeadline>> loadDeadlines() async {
     final prefs = await SharedPreferences.getInstance();
@@ -86,5 +88,33 @@ class StorageService {
   Future<void> saveMemos(List<Map<String, Object?>> memos) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_memosKey, jsonEncode(memos));
+  }
+
+  Future<List<Map<String, Object?>>> loadCompanyNotes() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_companyNotesKey);
+    if (raw == null || raw.isEmpty) return <Map<String, Object?>>[];
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return <Map<String, Object?>>[];
+    return decoded.whereType<Map>().map((m) => m.cast<String, Object?>()).toList(growable: false);
+  }
+
+  Future<void> saveCompanyNotes(List<Map<String, Object?>> notes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_companyNotesKey, jsonEncode(notes));
+  }
+
+  Future<List<Map<String, Object?>>> loadInterviewSessions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_interviewSessionsKey);
+    if (raw == null || raw.isEmpty) return <Map<String, Object?>>[];
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return <Map<String, Object?>>[];
+    return decoded.whereType<Map>().map((m) => m.cast<String, Object?>()).toList(growable: false);
+  }
+
+  Future<void> saveInterviewSessions(List<Map<String, Object?>> sessions) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_interviewSessionsKey, jsonEncode(sessions));
   }
 }

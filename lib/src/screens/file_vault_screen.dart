@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../services/storage_service.dart';
 import '../widgets/ad_placeholder.dart';
 
@@ -58,6 +59,7 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
   }
 
   Future<void> _addFiles() async {
+    final l10n = AppLocalizations.of(context)!;
     final result = await FilePicker.platform.pickFiles(allowMultiple: true);
     if (result == null || result.files.isEmpty) return;
     final dir = await _vaultDir();
@@ -71,7 +73,7 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
       final src = File(path);
       if (!src.existsSync()) continue;
       final ext = f.extension;
-      final baseName = (f.name.isNotEmpty ? f.name : '파일').replaceAll(RegExp(r'[\\\\/:*?"<>|]'), '_');
+      final baseName = (f.name.isNotEmpty ? f.name : l10n.vaultDefaultFileName).replaceAll(RegExp(r'[\\\\/:*?"<>|]'), '_');
       final fileName = ext == null || ext.isEmpty ? baseName : '$baseName.$ext';
       final destPath = '${dir.path}${Platform.pathSeparator}${now}_${i.toString().padLeft(3, '0')}_$fileName';
       i += 1;
@@ -110,55 +112,62 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
   }
 
   Future<void> _editMemo({_MemoNote? initial}) async {
+    final l10n = AppLocalizations.of(context)!;
     final titleController = TextEditingController(text: initial?.title ?? '');
     final contentController = TextEditingController(text: initial?.content ?? '');
 
     final saved = await showModalBottomSheet<_MemoNote>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) {
         final bottom = MediaQuery.of(context).viewInsets.bottom;
+        final safeBottom = MediaQuery.of(context).padding.bottom;
         return Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, bottom + 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                initial == null ? '메모 추가' : '메모 편집',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: '제목'),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: contentController,
-                decoration: const InputDecoration(labelText: '내용'),
-                minLines: 6,
-                maxLines: 12,
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () {
-                  final title = titleController.text.trim();
-                  final content = contentController.text.trim();
-                  final now = DateTime.now();
-                  final note = _MemoNote(
-                    id: initial?.id ?? '${now.microsecondsSinceEpoch}',
-                    title: title.isEmpty ? '제목 없음' : title,
-                    content: content,
-                    updatedAt: now,
-                  );
-                  Navigator.of(context).pop(note);
-                },
-                child: const Text('저장'),
-              ),
-            ],
+          padding: EdgeInsets.only(bottom: bottom + safeBottom),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  initial == null ? l10n.vaultAddMemo : l10n.vaultEditMemo,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: titleController,
+                  decoration: InputDecoration(labelText: l10n.title),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: contentController,
+                  decoration: InputDecoration(labelText: l10n.content),
+                  minLines: 6,
+                  maxLines: 12,
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () {
+                    final title = titleController.text.trim();
+                    final content = contentController.text.trim();
+                    final now = DateTime.now();
+                    final note = _MemoNote(
+                      id: initial?.id ?? '${now.microsecondsSinceEpoch}',
+                      title: title.isEmpty ? l10n.noTitle : title,
+                      content: content,
+                      updatedAt: now,
+                    );
+                    Navigator.of(context).pop(note);
+                  },
+                  child: Text(l10n.save),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -187,6 +196,7 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final body = _loading
         ? const Center(child: CircularProgressIndicator())
@@ -220,12 +230,16 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  '파일함',
-                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 19,
-                                      ),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    l10n.vaultTitle,
+                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 19,
+                                        ),
+                                  ),
                                 ),
                                 const Icon(Icons.arrow_drop_down, color: Colors.transparent),
                               ],
@@ -238,7 +252,7 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
                   IconButton(
                     onPressed: _loading ? null : (_tab == _VaultTab.files ? _addFiles : () => _editMemo()),
                     icon: const Icon(Icons.add),
-                    tooltip: _tab == _VaultTab.files ? '파일 추가' : '메모 추가',
+                    tooltip: _tab == _VaultTab.files ? l10n.vaultAddFile : l10n.vaultAddMemo,
                   ),
                   const SizedBox(width: 14),
                   IconButton(
@@ -253,11 +267,11 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
             // 배너 광고 추가 (일정/현황 화면과 통일)
             const AdPlaceholder(),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
               child: SegmentedButton<_VaultTab>(
-                segments: const [
-                  ButtonSegment(value: _VaultTab.files, label: Text('파일')),
-                  ButtonSegment(value: _VaultTab.memo, label: Text('메모')),
+                segments: [
+                  ButtonSegment(value: _VaultTab.files, label: Text(l10n.vaultFileTab)),
+                  ButtonSegment(value: _VaultTab.memo, label: Text(l10n.vaultMemoTab)),
                 ],
                 selected: <_VaultTab>{_tab},
                 onSelectionChanged: (v) => setState(() => _tab = v.first),
@@ -278,7 +292,7 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Text(
-                    '파일/메모는 서버로 전송되지 않고 내 휴대폰에만 저장돼요.\n앱을 삭제하면 데이터가 함께 삭제될 수 있어요.',
+                    l10n.vaultStorageWarning,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
@@ -295,12 +309,13 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
   }
 
   Widget _buildFiles(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (_files.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
-            '저장된 파일이 없어요.\n오른쪽 위 + 버튼으로 추가해보세요.',
+            l10n.vaultNoFiles,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -329,9 +344,9 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
                 if (value == 'open') await _openFile(f);
                 if (value == 'delete') await _deleteFile(f);
               },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'open', child: Text('열기')),
-                PopupMenuItem(value: 'delete', child: Text('삭제')),
+              itemBuilder: (context) => [
+                PopupMenuItem(value: 'open', child: Text(l10n.vaultOpenFile)),
+                PopupMenuItem(value: 'delete', child: Text(l10n.delete)),
               ],
             ),
             onTap: () => _openFile(f),
@@ -342,12 +357,13 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
   }
 
   Widget _buildMemos(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (_memos.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
-            '저장된 메모가 없어요.\n오른쪽 위 + 버튼으로 추가해보세요.',
+            l10n.vaultNoMemos,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -376,9 +392,9 @@ class _FileVaultScreenState extends State<FileVaultScreen> {
                 if (value == 'edit') await _editMemo(initial: m);
                 if (value == 'delete') await _deleteMemo(m);
               },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'edit', child: Text('편집')),
-                PopupMenuItem(value: 'delete', child: Text('삭제')),
+              itemBuilder: (context) => [
+                PopupMenuItem(value: 'edit', child: Text(l10n.edit)),
+                PopupMenuItem(value: 'delete', child: Text(l10n.delete)),
               ],
             ),
             onTap: () => _editMemo(initial: m),

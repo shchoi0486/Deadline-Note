@@ -8,8 +8,11 @@ class ShareService {
   Stream<String> onSharedText() async* {
     final controller = StreamController<String>.broadcast();
     _subscription = ShareHandler.instance.sharedMediaStream.listen((media) {
-      final text = media.content?.trim();
-      if (text == null || text.isEmpty) return;
+      final subject = media.conversationIdentifier?.trim();
+      final content = media.content?.trim();
+      final text = [subject, content].where((s) => s != null && s.isNotEmpty).join('\n');
+      
+      if (text.isEmpty) return;
       controller.add(text);
     });
     yield* controller.stream;
@@ -18,8 +21,12 @@ class ShareService {
   Future<String?> getInitialSharedText() async {
     final media = await ShareHandler.instance.getInitialSharedMedia();
     await ShareHandler.instance.resetInitialSharedMedia();
-    final text = media?.content?.trim();
-    if (text == null || text.isEmpty) return null;
+    
+    final subject = media?.conversationIdentifier?.trim();
+    final content = media?.content?.trim();
+    final text = [subject, content].where((s) => s != null && s.isNotEmpty).join('\n');
+    
+    if (text.isEmpty) return null;
     return text;
   }
 

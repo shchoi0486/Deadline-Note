@@ -1,5 +1,7 @@
+import '../../l10n/app_localizations.dart';
 import 'job_status.dart';
 import 'job_site.dart';
+import 'deadline_type.dart';
 
 class JobDeadline {
   JobDeadline({
@@ -7,6 +9,7 @@ class JobDeadline {
     required this.companyName,
     required this.jobTitle,
     required this.deadlineAt,
+    required this.deadlineType,
     required this.linkUrl,
     required this.site,
     required this.salary,
@@ -15,12 +18,15 @@ class JobDeadline {
     required this.notificationsEnabled,
     required this.memo,
     required this.createdAt,
+    this.isEstimated = false,
+    this.previousStepId,
   });
 
   final String id;
   final String companyName;
   final String jobTitle;
   final DateTime deadlineAt;
+  final DeadlineType deadlineType;
   final String linkUrl;
   final JobSite site;
   final String salary;
@@ -29,11 +35,19 @@ class JobDeadline {
   final bool notificationsEnabled;
   final String memo;
   final DateTime createdAt;
+  final bool isEstimated;
+  final String? previousStepId;
+
+  String localizedDisplayStatusLabel(AppLocalizations l10n) {
+    if (status == JobStatus.closed) return JobStatus.closed.localizedLabel(l10n);
+    if (outcome != JobOutcome.none) return outcome.localizedLabel(l10n);
+    return status.localizedLabel(l10n);
+  }
 
   String get displayStatusLabel {
-    if (status == JobStatus.closed) return JobStatus.closed.label;
-    if (outcome != JobOutcome.none) return outcome.label;
-    return status.label;
+    if (status == JobStatus.closed) return JobStatus.closed.name;
+    if (outcome != JobOutcome.none) return outcome.name;
+    return status.name;
   }
 
   JobDeadline copyWith({
@@ -41,6 +55,7 @@ class JobDeadline {
     String? companyName,
     String? jobTitle,
     DateTime? deadlineAt,
+    DeadlineType? deadlineType,
     String? linkUrl,
     JobSite? site,
     String? salary,
@@ -49,12 +64,15 @@ class JobDeadline {
     bool? notificationsEnabled,
     String? memo,
     DateTime? createdAt,
+    bool? isEstimated,
+    String? previousStepId,
   }) {
     return JobDeadline(
       id: id ?? this.id,
       companyName: companyName ?? this.companyName,
       jobTitle: jobTitle ?? this.jobTitle,
       deadlineAt: deadlineAt ?? this.deadlineAt,
+      deadlineType: deadlineType ?? this.deadlineType,
       linkUrl: linkUrl ?? this.linkUrl,
       site: site ?? this.site,
       salary: salary ?? this.salary,
@@ -63,6 +81,8 @@ class JobDeadline {
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       memo: memo ?? this.memo,
       createdAt: createdAt ?? this.createdAt,
+      isEstimated: isEstimated ?? this.isEstimated,
+      previousStepId: previousStepId ?? this.previousStepId,
     );
   }
 
@@ -72,6 +92,7 @@ class JobDeadline {
       'companyName': companyName,
       'jobTitle': jobTitle,
       'deadlineAt': deadlineAt.toIso8601String(),
+      'deadlineType': deadlineType.name,
       'linkUrl': linkUrl,
       'site': site.name,
       'salary': salary,
@@ -80,6 +101,8 @@ class JobDeadline {
       'notificationsEnabled': notificationsEnabled,
       'memo': memo,
       'createdAt': createdAt.toIso8601String(),
+      'isEstimated': isEstimated,
+      'previousStepId': previousStepId,
     };
   }
 
@@ -88,6 +111,12 @@ class JobDeadline {
     final site = JobSite.values.firstWhere(
       (s) => s.name == siteName,
       orElse: () => JobSite.unknown,
+    );
+
+    final deadlineTypeName = (json['deadlineType'] as String?) ?? DeadlineType.fixedDate.name;
+    final deadlineType = DeadlineType.values.firstWhere(
+      (t) => t.name == deadlineTypeName,
+      orElse: () => DeadlineType.fixedDate,
     );
 
     JobStatus parseStatus(Object? v) {
@@ -122,7 +151,7 @@ class JobDeadline {
       if (byAlias != null) return byAlias;
 
       final byLabel = JobStatus.values.firstWhere(
-        (s) => s.label == statusName || s.label.replaceAll(' ', '') == normalized,
+        (s) => s.internalLabel == statusName || s.internalLabel.replaceAll(' ', '') == normalized,
         orElse: () => JobStatus.notApplied,
       );
       return byLabel;
@@ -164,7 +193,8 @@ class JobDeadline {
       id: (json['id'] as String?) ?? '',
       companyName: (json['companyName'] as String?) ?? '',
       jobTitle: (json['jobTitle'] as String?) ?? '',
-      deadlineAt: DateTime.parse((json['deadlineAt'] as String?) ?? ''),
+      deadlineAt: DateTime.parse((json['deadlineAt'] as String?) ?? DateTime.now().toIso8601String()),
+      deadlineType: deadlineType,
       linkUrl: (json['linkUrl'] as String?) ?? '',
       site: site,
       salary: (json['salary'] as String?) ?? '',
@@ -172,7 +202,9 @@ class JobDeadline {
       outcome: outcome,
       notificationsEnabled: (json['notificationsEnabled'] as bool?) ?? true,
       memo: (json['memo'] as String?) ?? '',
-      createdAt: DateTime.parse((json['createdAt'] as String?) ?? ''),
+      createdAt: DateTime.parse((json['createdAt'] as String?) ?? DateTime.now().toIso8601String()),
+      isEstimated: (json['isEstimated'] as bool?) ?? false,
+      previousStepId: json['previousStepId'] as String?,
     );
   }
 }

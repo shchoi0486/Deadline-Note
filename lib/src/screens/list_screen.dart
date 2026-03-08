@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:deadline_note/l10n/app_localizations.dart';
 
+import '../models/deadline_type.dart';
 import '../models/job_deadline.dart';
 import '../models/job_status.dart';
 import '../state/app_state_scope.dart';
@@ -28,6 +30,8 @@ class _ListScreenState extends State<ListScreen> {
     final appState = AppStateScope.of(context);
     final allDeadlines = appState.deadlines.toList()..sort((a, b) => a.deadlineAt.compareTo(b.deadlineAt));
     final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
     return DefaultTabController(
       length: _PipelineFilter.values.length,
@@ -36,73 +40,83 @@ class _ListScreenState extends State<ListScreen> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: cs.primaryContainer,
-                      foregroundColor: cs.onPrimaryContainer,
-                      child: const Icon(Icons.person, size: 16),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () {},
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '현황(Pipeline)',
-                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 19,
-                                        ),
-                                  ),
-                                  const Icon(Icons.arrow_drop_down, color: Colors.transparent),
-                                ],
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                child: SizedBox(
+                  height: 32,
+                  child: Row(
+                    children: [
+                      // Left: Profile & Title
+                      Expanded(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: cs.primary.withValues(alpha: 0.1),
+                              foregroundColor: cs.primary,
+                              child: const Icon(Icons.person, size: 16),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  l10n.tabList,
+                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 22,
+                                        letterSpacing: -0.5,
+                                        height: 1.0,
+                                      ),
+                                  maxLines: 1,
+                                ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.star_border, color: Colors.transparent),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 14),
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.view_list, color: Colors.transparent),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
+
+                      // Center: Empty or relevant info
+                      const SizedBox.shrink(),
+
+                      // Right: Actions
+                      const Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 캘린더 화면의 아이콘 3개 공간(24*3) + 간격(8*2) 만큼 비워두어 중앙 정렬 유지
+                            SizedBox(width: 24 * 3 + 8 * 2), 
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const AdPlaceholder(),
-              const SizedBox(height: 6),
-              TabBar(
-                isScrollable: false,
-                indicatorSize: TabBarIndicatorSize.tab,
-                labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
-                tabs: const [
-                  Tab(text: '전체'),
-                  Tab(text: '서류'),
-                  Tab(text: '인적성'),
-                  Tab(text: '면접'),
-                  Tab(text: '불합격'),
-                ],
-              ),
+                const SizedBox(height: 1),
+                TabBar(
+                  isScrollable: false,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+                  labelStyle: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
+                  unselectedLabelStyle: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                  tabs: [
+                    Tab(text: l10n.filterAll),
+                    Tab(text: l10n.filterDocument),
+                    Tab(text: l10n.filterAptitude),
+                    Tab(text: l10n.filterInterview),
+                    Tab(text: l10n.filterFailed),
+                  ],
+                ),
               Expanded(
                 child: TabBarView(
                   children: _PipelineFilter.values.map((filter) {
@@ -115,7 +129,9 @@ class _ListScreenState extends State<ListScreen> {
                         case _PipelineFilter.aptitude:
                           return d.status == JobStatus.videoInterview;
                         case _PipelineFilter.interview:
-                          return d.status.isInterviewGroup;
+                          return d.status == JobStatus.interview1 ||
+                              d.status == JobStatus.interview2 ||
+                              d.status == JobStatus.finalInterview;
                         case _PipelineFilter.failed:
                           return d.outcome == JobOutcome.failed;
                       }
@@ -126,7 +142,7 @@ class _ListScreenState extends State<ListScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 48),
                         child: Center(
                           child: Text(
-                            '조건에 맞는 일정이 없어요.',
+                            l10n.noFilteredSchedules,
                             style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
                           ),
                         ),
@@ -135,15 +151,16 @@ class _ListScreenState extends State<ListScreen> {
 
                     final inProgress =
                         items.where((d) => d.status != JobStatus.closed && d.outcome == JobOutcome.none).toList(growable: false);
-                    final passed = items.where((d) => d.outcome == JobOutcome.passed).toList(growable: false);
+                    final passed =
+                        items.where((d) => d.outcome == JobOutcome.passed).toList(growable: false);
                     final closedOrFailed = items.where((d) => d.status == JobStatus.closed || d.outcome == JobOutcome.failed).toList(growable: false);
 
                     return ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                       children: [
-                        if (inProgress.isNotEmpty) _StatusSection(title: '진행 중', items: inProgress),
-                        if (passed.isNotEmpty) _StatusSection(title: '전형 통과', items: passed),
-                        if (closedOrFailed.isNotEmpty) _StatusSection(title: '마감/불합격', items: closedOrFailed),
+                        if (inProgress.isNotEmpty) _StatusSection(title: l10n.statusInProgress, items: inProgress),
+                        if (passed.isNotEmpty) _StatusSection(title: l10n.statusPassed, items: passed),
+                        if (closedOrFailed.isNotEmpty) _StatusSection(title: l10n.statusClosed, items: closedOrFailed),
                       ],
                     );
                   }).toList(),
@@ -168,22 +185,28 @@ class _StatusSection extends StatelessWidget {
   static const _aptOrange = Color(0xFFFFD59E);
   static const _interviewGreen = Color(0xFFB7F0C0);
 
-  ({Color bg, Color fg}) _chipColorsFor(JobDeadline d, ColorScheme cs) {
+  ({Color bg, Color fg}) _chipColorsFor(BuildContext context, JobDeadline d, ColorScheme cs) {
     if (d.status == JobStatus.closed) {
       return (bg: cs.surfaceContainerHighest, fg: cs.onSurfaceVariant);
     }
-    // 합격/불합격 여부와 상관없이 현재 전형 단계에 맞는 색상을 반환하도록 수정
-    // (합격했더라도 '최종면접' 단계라면 최종면접 색상 유지 등)
+    
+    // AppSettings에서 커스텀 색상 가져오기
+    final settings = AppStateScope.of(context).settings;
+    final customColorValue = settings.stageColors[d.status.name];
+    
+    if (customColorValue != null) {
+      final color = Color(customColorValue);
+      return (bg: color, fg: Colors.black.withValues(alpha: 0.7));
+    }
+
+    // 기본 색상 (커스텀 설정이 없는 경우)
     if (d.status == JobStatus.document) {
-      // 서류(document)는 달력과 동일한 분홍색 계열 사용
       return (bg: _docPink, fg: Colors.black.withValues(alpha: 0.7));
     }
     if (d.status == JobStatus.videoInterview) {
-      // 인적성(videoInterview)은 달력과 동일한 주황색 계열 사용
       return (bg: _aptOrange, fg: Colors.black.withValues(alpha: 0.7));
     }
     if (d.status.isInterviewGroup) {
-      // 면접 그룹(1차, 2차, 최종)은 달력과 동일한 초록색 계열 사용
       return (bg: _interviewGreen, fg: Colors.black.withValues(alpha: 0.7));
     }
     return (bg: cs.primaryContainer, fg: cs.onPrimaryContainer);
@@ -204,8 +227,10 @@ class _StatusSection extends StatelessWidget {
     // 아예 상위 호출부에서 '완료된 전형' 등으로 변경해서 넘겨주는 것이 좋음.
     // 일단 여기서는 title을 그대로 표시.
     
+    final l10n = AppLocalizations.of(context)!;
+    
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -217,17 +242,16 @@ class _StatusSection extends StatelessWidget {
           // -> 따라서 '전형 통과' 또는 '다음 전형 대기' 등으로 순화하거나, 
           // -> 아예 타이틀을 '완료된 일정' 등으로 변경하는 것이 좋음.
           // -> 상위 위젯(build 메서드)에서 title을 수정해서 넘기는 것이 깔끔함.
-          Text(title, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
+          Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           for (final d in items)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Card(
-                elevation: 0,
-                color: cs.surfaceContainerLow,
-                shape: RoundedRectangleBorder(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                  border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
                 ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
@@ -237,43 +261,51 @@ class _StatusSection extends StatelessWidget {
                     );
                   },
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     child: Row(
                       children: [
                         Builder(
                           builder: (context) {
-                            final colors = _chipColorsFor(d, cs);
+                            final colors = _chipColorsFor(context, d, cs);
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: colors.bg,
-                                borderRadius: BorderRadius.circular(12),
+                                color: colors.bg.withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: colors.bg.withValues(alpha: 0.5)),
                               ),
                               child: Text(
-                                d.status.badgeLabel,
+                                d.status.localizedBadgeLabel(l10n),
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colors.fg,
-                                  fontWeight: FontWeight.w900,
+                                  color: cs.onSurface, // colors.fg 대신 일관된 텍스트 색상 사용
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 10,
                                 ),
                               ),
                             );
                           },
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                d.companyName.isNotEmpty ? d.companyName : '회사명 없음',
-                                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                                d.companyName.isNotEmpty ? d.companyName : l10n.noCompanyName,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.clip,
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                d.jobTitle.isNotEmpty ? d.jobTitle : '제목 없음',
-                                style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                                d.jobTitle.isNotEmpty ? d.jobTitle : l10n.noTitle,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                  fontSize: 11,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.clip,
                               ),
@@ -286,21 +318,42 @@ class _StatusSection extends StatelessWidget {
                           children: [
                             Builder(
                               builder: (context) {
-                                final label = DateFormatters.dDayLabel(d.deadlineAt);
-                                final color = (label == 'D-DAY' || label == '마감') ? cs.error : cs.primary;
-                                return Text(
+                                final label = d.deadlineType == DeadlineType.rolling
+                                      ? l10n.rollingDeadline
+                                      : DateFormatters.dDayLabel(l10n, d.deadlineAt);
+                                  final color = (label == l10n.dDayToday || label == l10n.dDayClosed) ? cs.error : cs.primary;
+                                  return Text(
                                   label,
-                                  style: theme.textTheme.titleSmall?.copyWith(
+                                  style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w900,
                                     color: color,
+                                    fontSize: 14,
                                   ),
                                 );
                               },
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              DateFormatters.ymd.format(d.deadlineAt),
-                              style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (d.isEstimated) ...[
+                                  Text(
+                                    d.deadlineType == DeadlineType.rolling ? '${l10n.temporary} ' : '${l10n.estimated} ',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: cs.secondary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                                Text(
+                                  DateFormatters.ymd.format(d.deadlineAt),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

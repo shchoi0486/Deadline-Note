@@ -1,3 +1,5 @@
+import 'package:deadline_note/l10n/app_localizations.dart';
+
 enum JobStatus {
   notApplied,
   applied,
@@ -19,16 +21,44 @@ enum JobOutcome {
 }
 
 extension JobStatusLabels on JobStatus {
-  String get label {
+  String localizedLabel(AppLocalizations l10n) {
     switch (this) {
       case JobStatus.notApplied:
-        return '지원 전';
+        return l10n.statusNotApplied;
       case JobStatus.applied:
-        return '지원 완료';
+        return l10n.statusApplied;
+      case JobStatus.document:
+        return l10n.statusDocument;
+      case JobStatus.videoInterview:
+        return l10n.statusVideoInterview;
+      case JobStatus.interview1:
+        return l10n.statusInterview1;
+      case JobStatus.interview2:
+        return l10n.statusInterview2;
+      case JobStatus.finalInterview:
+        return l10n.statusFinalInterview;
+      case JobStatus.offer:
+        return l10n.statusOffer;
+      case JobStatus.hired:
+        return l10n.statusHired;
+      case JobStatus.rejected:
+        return l10n.statusRejected;
+      case JobStatus.closed:
+        return l10n.statusClosed;
+    }
+  }
+
+  /// Internal use only for legacy data parsing. Use [localizedLabel] for UI.
+  String get internalLabel {
+    switch (this) {
+      case JobStatus.notApplied:
+        return '지원전';
+      case JobStatus.applied:
+        return '지원완료';
       case JobStatus.document:
         return '서류';
       case JobStatus.videoInterview:
-        return '인적성검사';
+        return '화상면접';
       case JobStatus.interview1:
         return '1차면접';
       case JobStatus.interview2:
@@ -38,7 +68,7 @@ extension JobStatusLabels on JobStatus {
       case JobStatus.offer:
         return '오퍼';
       case JobStatus.hired:
-        return '합격';
+        return '입사';
       case JobStatus.rejected:
         return '불합격';
       case JobStatus.closed:
@@ -46,20 +76,20 @@ extension JobStatusLabels on JobStatus {
     }
   }
 
-  String get badgeLabel {
+  String localizedBadgeLabel(AppLocalizations l10n) {
     switch (this) {
       case JobStatus.document:
-        return '서류';
+        return l10n.badgeDocument;
       case JobStatus.videoInterview:
-        return '인적성';
+        return l10n.badgeVideoInterview;
       case JobStatus.interview1:
-        return '1차';
+        return l10n.badgeInterview1;
       case JobStatus.interview2:
-        return '2차';
+        return l10n.badgeInterview2;
       case JobStatus.finalInterview:
-        return '최종';
+        return l10n.badgeFinalInterview;
       case JobStatus.closed:
-        return '마감';
+        return l10n.badgeClosed;
       default:
         return '';
     }
@@ -67,14 +97,14 @@ extension JobStatusLabels on JobStatus {
 }
 
 extension JobOutcomeLabels on JobOutcome {
-  String get label {
+  String localizedLabel(AppLocalizations l10n) {
     switch (this) {
       case JobOutcome.none:
         return '';
       case JobOutcome.passed:
-        return '합격';
+        return l10n.outcomePassed;
       case JobOutcome.failed:
-        return '불합격';
+        return l10n.outcomeFailed;
     }
   }
 }

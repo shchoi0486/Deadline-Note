@@ -1,11 +1,14 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:deadline_note/l10n/app_localizations.dart';
 
+import '../models/deadline_type.dart';
 import '../models/job_deadline.dart';
 import '../models/job_site.dart';
 import '../models/job_status.dart';
 import '../ui/date_formatters.dart';
+import '../utils/ad_manager.dart';
 
 class DeadlineEditorForm extends StatefulWidget {
   const DeadlineEditorForm({
@@ -19,7 +22,7 @@ class DeadlineEditorForm extends StatefulWidget {
   });
 
   final JobDeadline initial;
-  final Future<void> Function(JobDeadline next) onSubmit;
+  final Future<void> Function(JobDeadline next, {bool silent}) onSubmit;
   final String submitLabel;
   final List<String> warnings;
   final bool allowDelete;
@@ -38,6 +41,8 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
   late final TextEditingController _memoController;
 
   late DateTime _deadlineAt;
+  late DeadlineType _deadlineType;
+  late bool _isEstimated;
   JobStatus _status = JobStatus.document;
   JobOutcome _outcome = JobOutcome.none;
   bool _notificationsEnabled = true;
@@ -52,6 +57,8 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
     _salaryController = TextEditingController(text: widget.initial.salary);
     _memoController = TextEditingController(text: widget.initial.memo);
     _deadlineAt = widget.initial.deadlineAt;
+    _deadlineType = widget.initial.deadlineType;
+    _isEstimated = widget.initial.isEstimated;
     _status = widget.initial.status.isPipelineStage ? widget.initial.status : JobStatus.document;
     _outcome = widget.initial.outcome;
     _notificationsEnabled = widget.initial.notificationsEnabled;
@@ -72,13 +79,14 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
     return '$now-${_rng.nextInt(9999).toString().padLeft(4, '0')}';
   }
 
-  DateTime _atEndOfDay(DateTime d) => DateTime(d.year, d.month, d.day, 23, 59);
+  DateTime _atEndOfDay(DateTime d) => DateTime(d.year, d.month, d.day, 18, 0);
 
   Future<bool> _saveCurrentSilently() async {
+    final l10n = AppLocalizations.of(context)!;
     if (_submitting) return false;
     final company = _companyController.text.trim();
     if (company.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('회사명은 필수예요.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.companyNameRequiredMsg)));
       return false;
     }
 
@@ -93,16 +101,18 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
         linkUrl: link,
         salary: _salaryController.text.trim(),
         deadlineAt: _deadlineAt,
+        deadlineType: _deadlineType,
         status: _status,
         outcome: _outcome,
         notificationsEnabled: _notificationsEnabled,
         memo: _memoController.text.trim(),
+        isEstimated: _isEstimated,
       );
-      await widget.onSubmit(next);
+      await widget.onSubmit(next, silent: true);
       return true;
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했어요: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.saveError(e.toString()))));
       }
       return false;
     } finally {
@@ -119,7 +129,13 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
       lastDate: DateTime(2100),
     );
     if (picked == null) return;
-    setState(() => _deadlineAt = _atEndOfDay(picked));
+    setState(() {
+      _deadlineAt = _atEndOfDay(picked);
+      // 수동으로 날짜를 선택하면 더 이상 '예상'이 아님 (상시채용 제외)
+      if (_deadlineType == DeadlineType.fixedDate) {
+        _isEstimated = false;
+      }
+    });
   }
 
   Future<void> _openNextStepSheet() async {
@@ -129,7 +145,8 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
         ? pipeline.skip(currentIndex + 1).toList(growable: false)
         : pipeline.where((s) => s != JobStatus.document).toList(growable: false);
     if (nextStageOptions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('다음 전형이 없어요.')));
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.noNextStepMsg)));
       return;
     }
 
@@ -139,11 +156,14 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
 
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) {
         final cs = Theme.of(context).colorScheme;
-        final paddingBottom = MediaQuery.of(context).viewInsets.bottom;
+        final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
+        final safeBottom = MediaQuery.of(context).padding.bottom;
 
         Future<void> pickNextDate(void Function(void Function()) setModalState) async {
           final picked = await showDatePicker(
@@ -158,64 +178,45 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
 
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + paddingBottom),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('다음 일정 추가', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 44,
-                      child: DropdownMenu<JobStatus>(
-                        width: double.infinity,
-                        initialSelection: nextStage,
-                        onSelected: (v) {
-                          if (v == null) return;
-                          setModalState(() => nextStage = v);
-                        },
-                        textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 15.0),
-                        dropdownMenuEntries: nextStageOptions
-                            .map(
-                              (s) => DropdownMenuEntry<JobStatus>(
-                                value: s,
-                                label: s.label,
-                                style: ButtonStyle(
-                                  textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 15)),
-                                  visualDensity: VisualDensity.compact,
+            final l10n = AppLocalizations.of(context)!;
+            return Padding(
+              padding: EdgeInsets.only(bottom: viewInsetsBottom + safeBottom),
+              child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.nextStep, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 44,
+                        child: DropdownMenu<JobStatus>(
+                          width: double.infinity,
+                          initialSelection: nextStage,
+                          onSelected: (v) {
+                            if (v == null) return;
+                            setModalState(() => nextStage = v);
+                          },
+                          textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 15.0),
+                          dropdownMenuEntries: nextStageOptions
+                              .map(
+                                (s) => DropdownMenuEntry<JobStatus>(
+                                  value: s,
+                                  label: s.localizedLabel(l10n),
+                                  style: ButtonStyle(
+                                    textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 15)),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
                                 ),
-                              ),
-                            )
-                            .toList(growable: false),
-                        label: const Text('전형', style: TextStyle(fontSize: 14.0)),
-                        inputDecorationTheme: InputDecorationTheme(
-                          isDense: true,
-                          filled: false,
-                          constraints: const BoxConstraints.tightFor(height: 44),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-                          ),
-                          labelStyle: TextStyle(fontSize: 14.0, color: cs.onSurfaceVariant),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      height: 44,
-                      child: InkWell(
-                        onTap: () => pickNextDate(setModalState),
-                        borderRadius: BorderRadius.circular(8),
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: '일정일',
+                              )
+                              .toList(growable: false),
+                          label: Text(l10n.nextStepDesc, style: const TextStyle(fontSize: 14.0)),
+                          inputDecorationTheme: InputDecorationTheme(
                             isDense: true,
                             filled: false,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            constraints: const BoxConstraints.tightFor(height: 44),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -223,96 +224,130 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
                             ),
                             labelStyle: TextStyle(fontSize: 14.0, color: cs.onSurfaceVariant),
                           ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  DateFormatters.ymd.format(nextDate),
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 15.0),
-                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        height: 44,
+                        child: InkWell(
+                          onTap: () => pickNextDate(setModalState),
+                          borderRadius: BorderRadius.circular(8),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: l10n.date,
+                              isDense: true,
+                              filled: false,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
                               ),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.event, size: 20),
-                            ],
+                              labelStyle: TextStyle(fontSize: 14.0, color: cs.onSurfaceVariant),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    DateFormatters.ymd.format(nextDate),
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 15.0),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.event, size: 20),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: Text(l10n.cancel),
                             ),
-                            child: const Text('취소'),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: _submitting
-                                ? null
-                                : () async {
-                                    final company = _companyController.text.trim();
-                                    if (company.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('회사명은 필수예요.')));
-                                      return;
-                                    }
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: _submitting
+                                  ? null
+                                  : () async {
+                                      final company = _companyController.text.trim();
+                                      if (company.isEmpty) {
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.companyNameRequiredMsg)));
+                                        return;
+                                      }
 
-                                    final next = JobDeadline(
-                                      id: _randomId(),
-                                      companyName: company,
-                                      jobTitle: _titleController.text.trim(),
-                                      deadlineAt: nextDate,
-                                      linkUrl: _linkController.text.trim(),
-                                      site: widget.initial.site,
-                                      salary: _salaryController.text.trim(),
-                                      status: nextStage,
-                                      outcome: JobOutcome.none,
-                                      notificationsEnabled: _notificationsEnabled,
-                                      memo: '',
-                                      createdAt: DateTime.now(),
-                                    );
-                                    try {
-                                      await widget.onSubmit(next);
-                                      if (!mounted) return;
-                                      Navigator.of(this.context).popUntil((route) => route.isFirst);
-                                    } catch (e) {
-                                      if (!context.mounted) return;
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(SnackBar(content: Text('다음 일정 추가 중 오류가 발생했어요: $e')));
-                                    }
-                                  },
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      final next = JobDeadline(
+                                        id: _randomId(),
+                                        companyName: company,
+                                        jobTitle: _titleController.text.trim(),
+                                        deadlineAt: nextDate,
+                                        deadlineType: _deadlineType,
+                                        linkUrl: _linkController.text.trim(),
+                                        site: widget.initial.site,
+                                        salary: _salaryController.text.trim(),
+                                        status: nextStage,
+                                        outcome: JobOutcome.none,
+                                        notificationsEnabled: _notificationsEnabled,
+                                        memo: '',
+                                        createdAt: DateTime.now(),
+                                        isEstimated: _isEstimated,
+                                        previousStepId: widget.initial.id,
+                                      );
+                                      try {
+                                        // 1. 바텀 시트 먼저 닫기
+                                        if (context.mounted) {
+                                          Navigator.of(context).pop();
+                                        }
+
+                                        // 2. 데이터 저장 (HomeShell의 리스너가 감지하여 탭 이동 및 팝 처리를 수행함)
+                                        await widget.onSubmit(next, silent: false);
+                                        
+                                        // 3. 광고 표시 (저장 후 UX 흐름상 표시)
+                                        if (context.mounted) {
+                                          await AdManager.showNativeAdDialog(context);
+                                        }
+                                      } catch (e) {
+                                        if (!context.mounted) return;
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(SnackBar(content: Text(l10n.addNextStepError(e.toString()))));
+                                      }
+                                    },
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: Text(l10n.add),
                             ),
-                            child: const Text('추가'),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+              );
+            },
+          );
+        },
+      );
+    }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
     if (_submitting) return;
     final company = _companyController.text.trim();
     final title = _titleController.text.trim();
     final link = _linkController.text.trim();
     if (company.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('회사명은 필수예요.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.companyNameRequiredMsg)));
       return;
     }
     if (_deadlineAt.isAfter(DateTime(2100))) return;
@@ -325,20 +360,30 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
         linkUrl: link,
         salary: _salaryController.text.trim(),
         deadlineAt: _deadlineAt,
+        deadlineType: _deadlineType,
         status: _status,
         outcome: _outcome,
         notificationsEnabled: _notificationsEnabled,
         memo: _memoController.text.trim(),
+        isEstimated: _isEstimated,
       );
-      await widget.onSubmit(next);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('저장 완료')));
-      if (Navigator.canPop(context)) {
-        Navigator.of(context).pop();
+      await widget.onSubmit(next, silent: false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.saveComplete)));
+      }
+      
+      // 저장 후 광고 표시 (UX를 위해 네이티브 다이얼로그 형태로 표시)
+      if (mounted) {
+        final navigator = Navigator.of(context);
+        await AdManager.showNativeAdDialog(context);
+
+        if (navigator.canPop()) {
+          navigator.pop();
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했어요: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.saveError(e.toString()))));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -347,316 +392,365 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    final bottomPadding = MediaQuery.of(context).padding.bottom + 8;
-    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 15.0);
-    const fieldHeight = 44.0;
-    const fieldSpacing = 14.0;
+    final bottomPadding = max(MediaQuery.of(context).padding.bottom, 40.0);
+    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14.0);
+    const fieldHeight = 40.0;
+    const fieldSpacing = 12.0;
 
     InputDecoration compactDecoration(String label) {
       return InputDecoration(
         labelText: label,
         isDense: true,
         filled: false,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
         ),
-        labelStyle: TextStyle(fontSize: 14.0, color: colorScheme.onSurfaceVariant),
+        labelStyle: TextStyle(fontSize: 12.0, color: colorScheme.onSurfaceVariant),
       );
     }
 
-    return Column(
-      children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            children: [
-              Row(
-                children: [
-                  Text(
-                    widget.initial.site.label,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
+    final formFields = [
+      Text(
+        l10n.jobInfo(widget.initial.site.localizedLabel(l10n)),
+        style: textStyle?.copyWith(
+          fontWeight: FontWeight.w600,
+          fontSize: 14.0,
+        ),
+      ),
+      const SizedBox(height: 6),
+      if (widget.warnings.isNotEmpty) ...[
+        Card(
+          color: colorScheme.errorContainer,
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.checkRequired,
+                    style: TextStyle(color: colorScheme.onErrorContainer, fontWeight: FontWeight.w700, fontSize: 12)),
+                const SizedBox(height: 2),
+                for (final w in widget.warnings)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 1),
+                    child: Text('• $w', style: TextStyle(color: colorScheme.onErrorContainer, fontSize: 11)),
                   ),
-                  if (_linkController.text.trim().isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      '원본 링크 포함',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (widget.warnings.isNotEmpty) ...[
-                Card(
-                  color: colorScheme.errorContainer,
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('확인이 필요해요', style: TextStyle(color: colorScheme.onErrorContainer, fontWeight: FontWeight.w700, fontSize: 13)),
-                        const SizedBox(height: 4),
-                        for (final w in widget.warnings)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 2),
-                            child: Text('• $w', style: TextStyle(color: colorScheme.onErrorContainer, fontSize: 12)),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
               ],
-              SizedBox(
-                height: fieldHeight,
-                child: TextField(
-                  controller: _companyController,
-                  textInputAction: TextInputAction.next,
-                  style: textStyle,
-                  decoration: compactDecoration('회사명 (필수)'),
-                ),
-              ),
-              const SizedBox(height: fieldSpacing),
-              SizedBox(
-                height: fieldHeight,
-                child: TextField(
-                  controller: _titleController,
-                  textInputAction: TextInputAction.next,
-                  style: textStyle,
-                  decoration: compactDecoration('직무/공고 제목 (선택)'),
-                ),
-              ),
-              const SizedBox(height: fieldSpacing),
-              SizedBox(
-                height: fieldHeight,
-                child: InkWell(
-                  onTap: _pickDeadline,
-                  borderRadius: BorderRadius.circular(8),
-                  child: InputDecorator(
-                    decoration: compactDecoration('마감일 (필수)'),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text(DateFormatters.ymd.format(_deadlineAt), style: textStyle)),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.event, size: 20),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: fieldSpacing),
-              SizedBox(
-                height: fieldHeight,
-                child: TextField(
-                  controller: _linkController,
-                  style: textStyle,
-                  decoration: compactDecoration('공고 링크 (선택)'),
-                  keyboardType: TextInputType.url,
-                ),
-              ),
-              const SizedBox(height: fieldSpacing),
-              SizedBox(
-                height: fieldHeight,
-                child: TextField(
-                  controller: _salaryController,
-                  style: textStyle,
-                  decoration: compactDecoration('급여 (선택)'),
-                  textInputAction: TextInputAction.next,
-                ),
-              ),
-              const SizedBox(height: fieldSpacing),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final dropdownWidth = (constraints.maxWidth - 128).clamp(160.0, constraints.maxWidth);
-                  final stageEnabled = _outcome == JobOutcome.none;
-                  return Column(
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Opacity(
-                              opacity: stageEnabled ? 1 : 0.55,
-                              child: SizedBox(
-                                height: fieldHeight,
-                                child: DropdownMenu<JobStatus>(
-                                  width: dropdownWidth,
-                                  initialSelection: _status,
-                                  onSelected: stageEnabled
-                                      ? (v) {
-                                          if (v == null) return;
-                                          setState(() => _status = v);
-                                        }
-                                      : null,
-                                  textStyle: textStyle,
-                                  dropdownMenuEntries: kPipelineStageOptions
-                                      .map((s) => DropdownMenuEntry<JobStatus>(
-                                            value: s,
-                                            label: s.label,
-                                            style: ButtonStyle(
-                                              textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 15)),
-                                              visualDensity: VisualDensity.compact,
-                                            ),
-                                          ))
-                                      .toList(growable: false),
-                                  label: const Text('상태', style: TextStyle(fontSize: 14.0)),
-                                  inputDecorationTheme: InputDecorationTheme(
-                                    isDense: true,
-                                    filled: false,
-                                    constraints: const BoxConstraints.tightFor(height: fieldHeight),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-                                    ),
-                                    labelStyle: TextStyle(fontSize: 14.0, color: colorScheme.onSurfaceVariant),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            height: fieldHeight,
-                            child: ToggleButtons(
-                              isSelected: <bool>[
-                                _outcome == JobOutcome.passed,
-                                _outcome == JobOutcome.failed,
-                              ],
-                              onPressed: (index) async {
-                                final prev = _outcome;
-                                final nextOutcome = index == 0
-                                    ? (_outcome == JobOutcome.passed ? JobOutcome.none : JobOutcome.passed)
-                                    : (_outcome == JobOutcome.failed ? JobOutcome.none : JobOutcome.failed);
-
-                                final openNext = nextOutcome == JobOutcome.passed && prev != JobOutcome.passed;
-                                final showEncouragement = nextOutcome == JobOutcome.failed && prev != JobOutcome.failed;
-                                setState(() {
-                                  _outcome = nextOutcome;
-                                });
-                                if (openNext && mounted) {
-                                  final ok = await _saveCurrentSilently();
-                                  if (!ok || !mounted) return;
-                                  await _openNextStepSheet();
-                                } else if (showEncouragement && mounted) {
-                                  const messages = [
-                                    '아쉽지만 괜찮아요. 다음 기회가 있어요.',
-                                    '수고했어요. 이번 경험이 다음 합격으로 이어질 거예요.',
-                                    '오늘은 여기까지. 잠깐 쉬고 다시 가보자.',
-                                  ];
-                                  final msg = messages[_rng.nextInt(messages.length)];
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(8),
-                              constraints: const BoxConstraints.tightFor(height: fieldHeight, width: 56),
-                              textStyle: const TextStyle(fontSize: 12.0, fontWeight: FontWeight.w700),
-                              children: const [
-                                Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Text('합격')),
-                                Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Text('불합격')),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 4),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
-                value: _notificationsEnabled,
-                onChanged: (v) => setState(() => _notificationsEnabled = v),
-                title: Text('마감 임박 알림 받기', style: textStyle?.copyWith(fontWeight: FontWeight.w600, fontSize: 14.0)),
-              ),
-              const SizedBox(height: fieldSpacing),
-              TextField(
-                controller: _memoController,
-                style: textStyle,
-                decoration: compactDecoration('메모 (선택)'),
-                minLines: 2,
-                maxLines: 4,
-              ),
-            ],
+            ),
           ),
         ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
-          child: Row(
-            children: [
-              if (widget.allowDelete && widget.onDelete != null) ...[
+        const SizedBox(height: 6),
+      ],
+      SizedBox(
+        height: fieldHeight,
+        child: TextField(
+          controller: _companyController,
+          textInputAction: TextInputAction.next,
+          style: textStyle,
+          decoration: compactDecoration(l10n.companyRequired),
+        ),
+      ),
+      const SizedBox(height: fieldSpacing),
+      SizedBox(
+        height: fieldHeight,
+        child: TextField(
+          controller: _titleController,
+          textInputAction: TextInputAction.next,
+          style: textStyle,
+          decoration: compactDecoration(l10n.jobTitleOptional),
+        ),
+      ),
+      const SizedBox(height: fieldSpacing),
+      SizedBox(
+        height: fieldHeight,
+        child: InkWell(
+          onTap: _pickDeadline,
+          borderRadius: BorderRadius.circular(8),
+          child: InputDecorator(
+            decoration: compactDecoration(_deadlineType == DeadlineType.rolling ? l10n.estimatedDeadline : l10n.deadlineRequired),
+            child: Row(
+              children: [
                 Expanded(
-                  child: OutlinedButton(
-                    onPressed: _submitting
-                        ? null
-                        : () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('삭제 확인'),
-                                content: const Text('정말 삭제하시겠습니까?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(false),
-                                    child: const Text('취소'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(true),
-                                    style: TextButton.styleFrom(foregroundColor: colorScheme.error),
-                                    child: const Text('삭제'),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            if (confirmed == true) {
-                              await widget.onDelete!.call();
-                              if (!context.mounted) return;
-                              Navigator.of(context).pop();
-                            }
-                          },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: colorScheme.error,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      side: BorderSide(color: colorScheme.error.withValues(alpha: 0.5)),
-                    ),
-                    child: const Text('삭제', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  child: Row(
+                    children: [
+                      Text(
+                        _deadlineType == DeadlineType.rolling
+                            ? '${DateFormatters.ymd.format(_deadlineAt)}${l10n.rollingEstimated}'
+                            : DateFormatters.ymd.format(_deadlineAt),
+                        style: textStyle,
+                      ),
+                      if (_isEstimated && _deadlineType != DeadlineType.rolling) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: colorScheme.secondaryContainer,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            l10n.estimated,
+                            style: TextStyle(
+                              color: colorScheme.onSecondaryContainer,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),
+                const Icon(Icons.event, size: 20),
               ],
-              Expanded(
-                child: FilledButton(
-                  onPressed: _submitting ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: _submitting
-                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(widget.submitLabel, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ],
+      ),
+      const SizedBox(height: fieldSpacing),
+      SizedBox(
+        height: fieldHeight,
+        child: TextField(
+          controller: _linkController,
+          style: textStyle,
+          decoration: compactDecoration(l10n.linkOptional),
+          keyboardType: TextInputType.url,
+        ),
+      ),
+      const SizedBox(height: fieldSpacing),
+      SizedBox(
+        height: fieldHeight,
+        child: TextField(
+          controller: _salaryController,
+          style: textStyle,
+          decoration: compactDecoration(l10n.salaryOptional),
+          textInputAction: TextInputAction.next,
+        ),
+      ),
+      const SizedBox(height: fieldSpacing),
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final dropdownWidth = (constraints.maxWidth - 120).clamp(140.0, constraints.maxWidth);
+          final stageEnabled = _outcome == JobOutcome.none;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Opacity(
+                      opacity: stageEnabled ? 1 : 0.55,
+                      child: SizedBox(
+                        height: fieldHeight,
+                        child: DropdownMenu<JobStatus>(
+                          width: dropdownWidth,
+                          initialSelection: _status,
+                          onSelected: stageEnabled
+                              ? (v) {
+                                  if (v == null) return;
+                                  setState(() => _status = v);
+                                }
+                              : null,
+                          textStyle: textStyle?.copyWith(fontSize: 14),
+                          dropdownMenuEntries: kPipelineStageOptions
+                              .map((s) => DropdownMenuEntry<JobStatus>(
+                                    value: s,
+                                    label: s.localizedLabel(l10n),
+                                    style: ButtonStyle(
+                                      textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 14)),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ))
+                              .toList(growable: false),
+                          label: Text(l10n.status, style: const TextStyle(fontSize: 12.0)),
+                          inputDecorationTheme: InputDecorationTheme(
+                            isDense: true,
+                            filled: false,
+                            constraints: const BoxConstraints.tightFor(height: fieldHeight),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 11, vertical: 0),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+                            ),
+                            labelStyle: TextStyle(fontSize: 12.0, color: colorScheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    height: fieldHeight,
+                    child: ToggleButtons(
+                      isSelected: <bool>[
+                        _outcome == JobOutcome.passed,
+                        _outcome == JobOutcome.failed,
+                      ],
+                      onPressed: (index) async {
+                        final prev = _outcome;
+                        final nextOutcome = index == 0
+                            ? (_outcome == JobOutcome.passed ? JobOutcome.none : JobOutcome.passed)
+                            : (_outcome == JobOutcome.failed ? JobOutcome.none : JobOutcome.failed);
+
+                        final openNext = nextOutcome == JobOutcome.passed && prev != JobOutcome.passed;
+                        final showEncouragement = nextOutcome == JobOutcome.failed && prev != JobOutcome.failed;
+                        setState(() {
+                          _outcome = nextOutcome;
+                        });
+                        if (openNext && mounted) {
+                          final ok = await _saveCurrentSilently();
+                          if (!ok || !mounted) return;
+                          await _openNextStepSheet();
+                        } else if (showEncouragement && mounted) {
+                          final messages = [
+                            l10n.encouragement1,
+                            l10n.encouragement2,
+                            l10n.encouragement3,
+                          ];
+                          final msg = messages[_rng.nextInt(messages.length)];
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      constraints: const BoxConstraints.tightFor(height: fieldHeight, width: 50),
+                      textStyle: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.w700),
+                      children: [
+                        Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(l10n.passed)),
+                        Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(l10n.failed)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+      const SizedBox(height: 2),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(l10n.notificationEnable, style: textStyle?.copyWith(fontWeight: FontWeight.w600, fontSize: 12.0)),
+          SizedBox(
+            height: 28,
+            child: Transform.scale(
+              scale: 0.8,
+              child: Switch(
+                value: _notificationsEnabled,
+                onChanged: (v) => setState(() => _notificationsEnabled = v),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 6),
+      TextField(
+        controller: _memoController,
+        style: textStyle,
+        decoration: compactDecoration(l10n.memoOptional),
+        minLines: 1,
+        maxLines: 3,
+      ),
+    ];
+
+    final bottomButtons = Padding(
+      padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
+      child: Row(
+        children: [
+          if (widget.allowDelete && widget.onDelete != null) ...[
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _submitting
+                    ? null
+                    : () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text(l10n.confirmDelete),
+                            content: Text(l10n.confirmDeleteContent),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: Text(l10n.cancel),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                style: TextButton.styleFrom(foregroundColor: colorScheme.error),
+                                child: Text(l10n.delete),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirmed == true) {
+                          await widget.onDelete!.call();
+                          if (!context.mounted) return;
+                          Navigator.of(context).pop();
+                        }
+                      },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.error,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  side: BorderSide(color: colorScheme.error.withValues(alpha: 0.5)),
+                ),
+                child: Text(l10n.delete, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: FilledButton(
+              onPressed: _submitting ? null : _submit,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: _submitting
+                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(widget.submitLabel, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxHeight != double.infinity) {
+          return Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  children: formFields,
+                ),
+              ),
+              bottomButtons,
+            ],
+          );
+        } else {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: formFields,
+                ),
+              ),
+              bottomButtons,
+            ],
+          );
+        }
+      },
     );
   }
 }

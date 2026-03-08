@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:deadline_note/l10n/app_localizations.dart';
 
 import '../state/app_state_scope.dart';
 import '../ui/date_formatters.dart';
@@ -14,8 +15,14 @@ class DeadlineDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final appState = AppStateScope.of(context);
-    final deadline = appState.deadlines.firstWhere((d) => d.id == deadlineId);
+    final deadline = appState.deadlines.where((d) => d.id == deadlineId).firstOrNull;
+
+    if (deadline == null) {
+      return const SizedBox.shrink();
+    }
+
     final shareText = [
       if (deadline.companyName.trim().isNotEmpty) deadline.companyName.trim(),
       if (deadline.jobTitle.trim().isNotEmpty) deadline.jobTitle.trim(),
@@ -23,10 +30,13 @@ class DeadlineDetailScreen extends StatelessWidget {
       if (deadline.linkUrl.trim().isNotEmpty) deadline.linkUrl.trim(),
     ].join('\n');
 
-    return Scaffold(
-      appBar: AppBar(
+    return GestureDetector(
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      behavior: HitTestBehavior.translucent,
+      child: Scaffold(
+        appBar: AppBar(
         title: Text(
-          '${deadline.companyName} • ${DateFormatters.dDayLabel(deadline.deadlineAt)}',
+          '${deadline.companyName} • ${DateFormatters.dDayLabel(l10n, deadline.deadlineAt)}',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
         actions: [
@@ -35,10 +45,20 @@ class DeadlineDetailScreen extends StatelessWidget {
               onPressed: () async {
                 final uri = Uri.tryParse(deadline.linkUrl.trim());
                 if (uri == null) return;
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                try {
+                  bool launched = await launchUrl(
+                    uri,
+                    mode: LaunchMode.externalNonBrowserApplication,
+                  );
+                  if (!launched) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                } catch (_) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
               },
               icon: const Icon(Icons.open_in_new),
-              tooltip: '원본 공고 열기',
+              tooltip: l10n.openOriginalLink,
             ),
           PopupMenuButton<String>(
             onSelected: (value) async {
@@ -49,12 +69,12 @@ class DeadlineDetailScreen extends StatelessWidget {
               switch (value) {
                 case 'edit':
                   if (!context.mounted) return;
-                  messenger.showSnackBar(const SnackBar(content: Text('아래에서 수정 후 저장하세요.')));
+                  messenger.showSnackBar(SnackBar(content: Text(l10n.editGuide)));
                   return;
                 case 'copy':
                   await Clipboard.setData(ClipboardData(text: shareText));
                   if (!context.mounted) return;
-                  messenger.showSnackBar(const SnackBar(content: Text('복사 완료')));
+                  messenger.showSnackBar(SnackBar(content: Text(l10n.copyComplete)));
                   return;
                 case 'share':
                   await Share.share(shareText);
@@ -64,17 +84,17 @@ class DeadlineDetailScreen extends StatelessWidget {
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (dialogContext) => AlertDialog(
-                      title: const Text('삭제 확인'),
-                      content: const Text('정말 삭제하시겠습니까?'),
+                      title: Text(l10n.confirmDelete),
+                      content: Text(l10n.confirmDeleteContent),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(dialogContext).pop(false),
-                          child: const Text('취소'),
+                          child: Text(l10n.cancel),
                         ),
                         TextButton(
                           onPressed: () => Navigator.of(dialogContext).pop(true),
                           style: TextButton.styleFrom(foregroundColor: colorScheme.error),
-                          child: const Text('삭제'),
+                          child: Text(l10n.delete),
                         ),
                       ],
                     ),
@@ -87,22 +107,23 @@ class DeadlineDetailScreen extends StatelessWidget {
                   return;
               }
             },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'edit', child: Text('편집')),
-              PopupMenuItem(value: 'copy', child: Text('복사')),
-              PopupMenuItem(value: 'delete', child: Text('삭제')),
-              PopupMenuItem(value: 'share', child: Text('공유')),
+            itemBuilder: (context) => [
+              PopupMenuItem(value: 'edit', child: Text(l10n.edit)),
+              PopupMenuItem(value: 'copy', child: Text(l10n.copy)),
+              PopupMenuItem(value: 'delete', child: Text(l10n.delete)),
+              PopupMenuItem(value: 'share', child: Text(l10n.share)),
             ],
           ),
         ],
       ),
       body: DeadlineEditorForm(
         initial: deadline,
-        submitLabel: '저장',
+        submitLabel: l10n.save,
         allowDelete: true,
-        onSubmit: (next) => appState.upsertDeadline(next),
+        onSubmit: (next, {silent = false}) => appState.upsertDeadline(next, incrementRevision: !silent),
         onDelete: () => appState.deleteDeadline(deadline.id),
       ),
-    );
-  }
+    ),
+  );
+}
 }

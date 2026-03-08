@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:deadline_note/l10n/app_localizations.dart';
 
 enum AddMethodResult { share, manual }
 
@@ -7,6 +8,7 @@ class AddMethodSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -15,15 +17,15 @@ class AddMethodSheet extends StatelessWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.link),
-              title: const Text('URL링크로 추가'),
-              subtitle: const Text('사람인/잡코리아 등에서 링크 공유'),
+              title: Text(l10n.addMethodLink),
+              subtitle: Text(l10n.addMethodLinkDesc),
               onTap: () => Navigator.of(context).pop(AddMethodResult.share),
             ),
             const SizedBox(height: 8),
             ListTile(
               leading: const Icon(Icons.edit),
-              title: const Text('직접 추가'),
-              subtitle: const Text('공유할 수 없는 공고일 때 빠르게 입력'),
+              title: Text(l10n.addMethodManual),
+              subtitle: Text(l10n.addMethodManualDesc),
               onTap: () => Navigator.of(context).pop(AddMethodResult.manual),
             ),
           ],
