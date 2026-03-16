@@ -37,6 +37,13 @@ class _NativeAdDialogState extends State<NativeAdDialog> {
       adUnitId: AdHelper.nativeAdUnitId,
       factoryId: 'adFactoryExample', // This is ignored if using nativeTemplateStyle
       request: const AdRequest(),
+      nativeAdOptions: NativeAdOptions(
+        videoOptions: VideoOptions(
+          startMuted: true,
+          clickToExpandRequested: true,
+          customControlsRequested: false,
+        ),
+      ),
       listener: NativeAdListener(
         onAdLoaded: (ad) {
           setState(() {
@@ -61,22 +68,22 @@ class _NativeAdDialogState extends State<NativeAdDialog> {
           textColor: Colors.white,
           backgroundColor: const Color(0xFF2E5BFF),
           style: NativeTemplateFontStyle.bold,
-          size: 16.0, // 다시 16으로 복구하여 가시성 확보
+          size: 14.0, // 버튼 텍스트 크기 약간 축소
         ),
         primaryTextStyle: NativeTemplateTextStyle(
           textColor: const Color(0xFF111111),
           style: NativeTemplateFontStyle.bold,
-          size: 16.0, // 제목 크기 복구
+          size: 15.0, // 제목 크기 약간 축소
         ),
         secondaryTextStyle: NativeTemplateTextStyle(
           textColor: const Color(0xFF666666),
           style: NativeTemplateFontStyle.normal,
-          size: 14.0, // 설명 크기 복구
+          size: 13.0, // 설명 크기 약간 축소
         ),
         tertiaryTextStyle: NativeTemplateTextStyle(
           textColor: const Color(0xFF999999),
           style: NativeTemplateFontStyle.normal,
-          size: 12.0, // 기타 텍스트 크기 복구
+          size: 11.0, // 기타 텍스트 크기 축소
         ),
       ),
     )..load();
@@ -100,20 +107,21 @@ class _NativeAdDialogState extends State<NativeAdDialog> {
       type: MaterialType.transparency,
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40), // 다시 40으로 복구하여 넓이 확보
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // White Card containing the Native Ad and "Remove Ads" button
               Container(
+                width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 25,
-                      offset: const Offset(0, 10),
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
@@ -122,18 +130,20 @@ class _NativeAdDialogState extends State<NativeAdDialog> {
                   children: [
                     // Native Ad View
                     ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                      child: SizedBox(
-                        height: 340, // 높이를 340으로 다시 늘려 버튼 영역 확보
-                        width: double.infinity,
-                        child: AdWidget(ad: _nativeAd!),
+                      borderRadius: BorderRadius.circular(20),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minHeight: 280,
+                          maxHeight: 340,
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: AdWidget(ad: _nativeAd!),
+                        ),
                       ),
                     ),
                     
-                    // Divider with subtle color
-                    Divider(height: 1, thickness: 1, color: Colors.grey[100]),
-
-                    // Remove Ads Button
+                    // Remove Ads Button (Visible enough, but not distracting)
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
@@ -146,18 +156,18 @@ class _NativeAdDialogState extends State<NativeAdDialog> {
                             ),
                           );
                         },
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 16), // 패딩 조정
+                          padding: const EdgeInsets.symmetric(vertical: 14), // 클릭 영역 및 가독성 확보
                           alignment: Alignment.center,
                           child: Text(
                             l10n.adRemove,
                             style: TextStyle(
-                              color: Colors.grey[600], // 더 진한 색으로 시인성 개선
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                              letterSpacing: -0.5,
+                              color: Colors.grey[600], // 색상을 더 진하게 변경
+                              fontWeight: FontWeight.w600, // 더 굵게
+                              fontSize: 13, // 크기 키움
+                              letterSpacing: -0.4,
                             ),
                           ),
                         ),

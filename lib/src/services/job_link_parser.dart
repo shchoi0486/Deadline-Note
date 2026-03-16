@@ -2606,6 +2606,8 @@ String _cleanSalaryText(String text) {
     '합격 시 급여를 미리 선지급 받을 수 있는 제트캐시 이용이 가능합니다',
     '제트캐시 상세보기',
     '상세요강 확인필요',
+    '상세요강 참조',
+    '근무시간상세요강 참조',
     '제트캐시 이용가능 공고',
     '합격하면 월급날 전에 알바비를미리 받을 수 있는 공고에요',
     '제트캐시',
@@ -2628,14 +2630,14 @@ String _cleanSalaryText(String text) {
 
   // 3. 금액(원/만원) 뒤에 붙은 설명 텍스트 과감하게 자르기
   // 예: "월급 2,800,000원합격 시..." -> "월급 2,800,000원"
-  final salaryEndPattern = RegExp(r'([\d,.~~\s]+(?:만원|원|달러))');
+  final salaryEndPattern = RegExp(r'([\d,.~~\s]+(?:만원|원|달러|결정|따름|협의|후))');
   final match = salaryEndPattern.firstMatch(text);
   if (match != null) {
     // 금액 패턴이 발견되면 그 직후에 오는 조사나 불필요한 문구 확인
     final endPos = match.end;
     if (endPos < text.length) {
       final remaining = text.substring(endPos).trim();
-      // 만약 남은 텍스트가 숫자로 시작하지 않고, '시', '합', '제', '확' 등 노이즈 시작 단어라면 자름
+      // 만약 남은 텍스트가 숫자로 시작하지 않고, '시', '합', '제', '확', '근', '상' 등 노이즈 시작 단어라면 자름
       if (remaining.isNotEmpty && !RegExp(r'^[0-9/~]').hasMatch(remaining)) {
         text = text.substring(0, endPos);
       }

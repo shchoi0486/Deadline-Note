@@ -2256,15 +2256,31 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
     _companyController.addListener(() {
       if (mounted) {
         final text = _companyController.text.trim();
-        // 직접 입력 중에도 목록에 있는 이름과 일치하면 직무 자동 연동
-        if (_isEditing && _roleController.text.trim().isEmpty) {
-          final matchedRole = widget.companyRoles[text];
-          if (matchedRole != null && matchedRole.isNotEmpty) {
-            _roleController.text = matchedRole;
+        // 직접 입력 중에도 목록에 있는 이름과 일치하면 데이터 자동 연동
+        if (_isEditing) {
+          final matchedCompanies = widget.companies.where((c) => c.companyName == text).toList();
+          if (matchedCompanies.isNotEmpty) {
+            final matched = matchedCompanies.first;
+            // 이미 데이터가 채워져 있지 않은 경우에만 자동 채우기 (사용자 입력 방해 방지)
+            if (_roleController.text.trim().isEmpty) _roleController.text = matched.role;
+            if (_keywordsController.text.trim().isEmpty) _keywordsController.text = matched.keywords.join(', ');
+            if (_pitchController.text.trim().isEmpty) _pitchController.text = matched.pitch;
+            if (_risksController.text.trim().isEmpty) _risksController.text = matched.risks.join(', ');
+            if (_summaryController.text.trim().isEmpty) _summaryController.text = matched.summary;
+            if (_fitController.text.trim().isEmpty) _fitController.text = matched.fit;
+            if (_newsSummaryController.text.trim().isEmpty) _newsSummaryController.text = matched.newsSummary;
+            if (_businessDirectionController.text.trim().isEmpty) _businessDirectionController.text = matched.businessDirection;
+            if (_jobConnectionController.text.trim().isEmpty) _jobConnectionController.text = matched.jobConnection;
+            if (_riskPointsController.text.trim().isEmpty) _riskPointsController.text = matched.riskPoints;
+            if (_expectedQuestionsController.text.trim().isEmpty) _expectedQuestionsController.text = matched.expectedQuestions;
+            if (_currentSourceUrls.isEmpty) _currentSourceUrls = matched.sourceUrls;
           } else {
-            final matchedCompany = widget.companies.where((c) => c.companyName == text).toList();
-            if (matchedCompany.isNotEmpty) {
-              _roleController.text = matchedCompany.first.role;
+            // 기업노트에는 없지만 공고에 있는 경우 직무만 연동
+            if (_roleController.text.trim().isEmpty) {
+              final matchedRole = widget.companyRoles[text];
+              if (matchedRole != null && matchedRole.isNotEmpty) {
+                _roleController.text = matchedRole;
+              }
             }
           }
         }
@@ -2843,11 +2859,31 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
                             onSelected: (selection) {
                               if (selection == null) return;
                               _companyController.text = selection;
-                              final role = widget.companyRoles[selection];
-                              if (role != null && role.isNotEmpty) {
-                                _roleController.text = role;
+                              
+                              // 기업 목록에서 해당 기업을 찾아 데이터 자동 채우기
+                              final matchedCompanies = widget.companies.where((c) => c.companyName == selection).toList();
+                              if (matchedCompanies.isNotEmpty) {
+                                final matched = matchedCompanies.first;
+                                _roleController.text = matched.role;
+                                _keywordsController.text = matched.keywords.join(', ');
+                                _pitchController.text = matched.pitch;
+                                _risksController.text = matched.risks.join(', ');
+                                _summaryController.text = matched.summary;
+                                _fitController.text = matched.fit;
+                                _newsSummaryController.text = matched.newsSummary;
+                                _businessDirectionController.text = matched.businessDirection;
+                                _jobConnectionController.text = matched.jobConnection;
+                                _riskPointsController.text = matched.riskPoints;
+                                _expectedQuestionsController.text = matched.expectedQuestions;
+                                _currentSourceUrls = matched.sourceUrls;
+                              } else {
+                                // 기존 로직: 공고 기반 직무 자동 연동
+                                final role = widget.companyRoles[selection];
+                                if (role != null && role.isNotEmpty) {
+                                  _roleController.text = role;
+                                }
                               }
-                              setState(() {}); // To update search links
+                              setState(() {}); // UI 업데이트
                             },
               ),
             );
