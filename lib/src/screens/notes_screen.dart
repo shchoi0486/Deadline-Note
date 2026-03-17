@@ -396,6 +396,13 @@ class _NotesScreenState extends State<NotesScreen> with SingleTickerProviderStat
       }
     }
 
+    // [수정] 탭 이동 시마다 데이터 최신화 (다른 탭에서 추가된 일정 반영)
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        _loadData();
+      }
+    });
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -2256,6 +2263,15 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
     _companyController.addListener(() {
       if (mounted) {
         final text = _companyController.text.trim();
+        // [수정] 기업 목록 최신화 확인 (BuildContext를 통해 AppState 접근)
+        final appState = AppStateScope.of(context);
+        final companyRolesMap = <String, String>{};
+        for (final d in appState.deadlines) {
+          if (d.companyName.trim().isNotEmpty) {
+            companyRolesMap[d.companyName.trim()] = d.jobTitle;
+          }
+        }
+
         // 직접 입력 중에도 목록에 있는 이름과 일치하면 데이터 자동 연동
         if (_isEditing) {
           final matchedCompanies = widget.companies.where((c) => c.companyName == text).toList();
@@ -2277,7 +2293,7 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
           } else {
             // 기업노트에는 없지만 공고에 있는 경우 직무만 연동
             if (_roleController.text.trim().isEmpty) {
-              final matchedRole = widget.companyRoles[text];
+              final matchedRole = companyRolesMap[text];
               if (matchedRole != null && matchedRole.isNotEmpty) {
                 _roleController.text = matchedRole;
               }
@@ -2716,9 +2732,11 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
         .toList(growable: false)
       ..sort((a, b) => b.heldAt.compareTo(a.heldAt));
 
+    final appState = AppStateScope.of(context);
     final allCompanyNames = {
       ...widget.companies.map((c) => c.companyName),
       ...widget.companyRoles.keys,
+      ...appState.deadlines.map((d) => d.companyName.trim()).where((name) => name.isNotEmpty),
     }.toList()..sort();
 
     const fieldSpacing = 12.0;
@@ -2860,6 +2878,15 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
                               if (selection == null) return;
                               _companyController.text = selection;
                               
+                              // [수정] 기업 목록 최신화 확인
+                              final appState = AppStateScope.of(context);
+                              final companyRolesMap = <String, String>{};
+                              for (final d in appState.deadlines) {
+                                if (d.companyName.trim().isNotEmpty) {
+                                  companyRolesMap[d.companyName.trim()] = d.jobTitle;
+                                }
+                              }
+
                               // 기업 목록에서 해당 기업을 찾아 데이터 자동 채우기
                               final matchedCompanies = widget.companies.where((c) => c.companyName == selection).toList();
                               if (matchedCompanies.isNotEmpty) {
@@ -2878,7 +2905,7 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
                                 _currentSourceUrls = matched.sourceUrls;
                               } else {
                                 // 기존 로직: 공고 기반 직무 자동 연동
-                                final role = widget.companyRoles[selection];
+                                final role = companyRolesMap[selection];
                                 if (role != null && role.isNotEmpty) {
                                   _roleController.text = role;
                                 }
