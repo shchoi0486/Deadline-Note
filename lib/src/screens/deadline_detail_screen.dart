@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'job_browser_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:deadline_note/l10n/app_localizations.dart';
 
@@ -43,21 +44,21 @@ class DeadlineDetailScreen extends StatelessWidget {
           if (deadline.linkUrl.trim().isNotEmpty)
             IconButton(
               onPressed: () async {
-                final uri = Uri.tryParse(deadline.linkUrl.trim());
-                if (uri == null) return;
-                try {
-                  bool launched = await launchUrl(
-                    uri,
-                    mode: LaunchMode.externalNonBrowserApplication,
-                  );
-                  if (!launched) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                } catch (_) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) {
+                      final uri = Uri.parse(deadline.linkUrl.trim());
+                      final homeUrl = '${uri.scheme}://${uri.host}';
+                      return JobBrowserScreen(
+                        initialUrl: deadline.linkUrl.trim(),
+                        homeUrl: homeUrl,
+                        title: deadline.companyName,
+                      );
+                    },
+                  ),
+                );
               },
-              icon: const Icon(Icons.open_in_new),
+              icon: const Icon(Icons.open_in_browser_rounded),
               tooltip: l10n.openOriginalLink,
             ),
           PopupMenuButton<String>(

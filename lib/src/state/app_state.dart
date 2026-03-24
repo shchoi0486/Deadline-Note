@@ -111,11 +111,13 @@ class AppState extends ChangeNotifier {
 
   List<JobDeadline> _deadlines = <JobDeadline>[];
   AppSettings _settings = AppSettings(enableD3: true, enableD1: true, enable3h: false);
+  Map<String, String> _lastVisitedUrls = {};
   int _lastSavedRevision = 0;
   DateTime? _lastSavedDeadlineAt;
 
   List<JobDeadline> get deadlines => List<JobDeadline>.unmodifiable(_deadlines);
   AppSettings get settings => _settings;
+  Map<String, String> get lastVisitedUrls => _lastVisitedUrls;
   int get lastSavedRevision => _lastSavedRevision;
   DateTime? get lastSavedDeadlineAt => _lastSavedDeadlineAt;
 
@@ -143,8 +145,16 @@ class AppState extends ChangeNotifier {
 
     _deadlines = await _storage.loadDeadlines();
     _settings = AppSettings.fromJson(await _storage.loadSettings());
+    _lastVisitedUrls = await _storage.loadLastVisitedUrls();
     _deadlines = _normalizeClosed(_deadlines);
     await _storage.saveDeadlines(_deadlines);
+    notifyListeners();
+  }
+
+  Future<void> updateLastVisitedUrl(String siteName, String url) async {
+    _lastVisitedUrls = Map<String, String>.from(_lastVisitedUrls);
+    _lastVisitedUrls[siteName] = url;
+    await _storage.saveLastVisitedUrls(_lastVisitedUrls);
     notifyListeners();
   }
 

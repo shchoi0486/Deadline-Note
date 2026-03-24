@@ -35,6 +35,21 @@ class StorageService {
   static const _memosKey = 'memos.v1';
   static const _companyNotesKey = 'company_notes.v1';
   static const _interviewSessionsKey = 'interview_sessions.v1';
+  static const _lastVisitedUrlsKey = 'last_visited_urls.v1';
+
+  Future<Map<String, String>> loadLastVisitedUrls() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_lastVisitedUrlsKey);
+    if (raw == null || raw.isEmpty) return <String, String>{};
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return <String, String>{};
+    return decoded.cast<String, String>();
+  }
+
+  Future<void> saveLastVisitedUrls(Map<String, String> urls) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastVisitedUrlsKey, jsonEncode(urls));
+  }
 
   Future<List<JobDeadline>> loadDeadlines() async {
     final prefs = await SharedPreferences.getInstance();

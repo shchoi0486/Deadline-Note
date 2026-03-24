@@ -851,12 +851,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get howToStep3Desc => '在分享列表中找到并点击“截止日期笔记”图标。';
 
   @override
-  String get howToStep4Title => '4. 确认自动填充并保存';
-
-  @override
-  String get howToStep4Desc => '公司名称、职位标题、截止日期将自动提取。确认后点击“保存”即可！';
-
-  @override
   String get encouragement1 => '很遗憾，但没关系。还有下次机会。';
 
   @override

@@ -1697,7 +1697,7 @@ abstract class AppLocalizations {
   /// No description provided for @shareInstruction.
   ///
   /// In ko, this message translates to:
-  /// **'채용 사이트 등에서 “공유”로 링크를 보내면 자동으로 채워져요.'**
+  /// **'채용 사이트에서 [일정 등록] 버튼만 누르면\n공고 내용이 자동으로 저장됩니다!'**
   String get shareInstruction;
 
   /// No description provided for @howToUse.
@@ -1721,50 +1721,38 @@ abstract class AppLocalizations {
   /// No description provided for @howToStep1Title.
   ///
   /// In ko, this message translates to:
-  /// **'1. 브라우저 메뉴 열기'**
+  /// **'1. 추천 채용 사이트 선택'**
   String get howToStep1Title;
 
   /// No description provided for @howToStep1Desc.
   ///
   /// In ko, this message translates to:
-  /// **'채용 앱이나 브라우저에서 공고를 확인 중이라면 우측 하단의 \"메뉴 아이콘\"을 클릭하세요.'**
+  /// **'원하는 채용 사이트를 클릭하여 접속하세요.'**
   String get howToStep1Desc;
 
   /// No description provided for @howToStep2Title.
   ///
   /// In ko, this message translates to:
-  /// **'2. 공유 버튼 선택'**
+  /// **'2. 채용 공고 선택'**
   String get howToStep2Title;
 
   /// No description provided for @howToStep2Desc.
   ///
   /// In ko, this message translates to:
-  /// **'메뉴 팝업이 나타나면 우측 상단의 \"공유 아이콘\"을 클릭합니다.'**
+  /// **'지원하고자 하는 채용 공고를 선택해 주세요.'**
   String get howToStep2Desc;
 
   /// No description provided for @howToStep3Title.
   ///
   /// In ko, this message translates to:
-  /// **'3. 마감노트 앱 선택'**
+  /// **'3. [일정 등록] 버튼 클릭'**
   String get howToStep3Title;
 
   /// No description provided for @howToStep3Desc.
   ///
   /// In ko, this message translates to:
-  /// **'공유 목록에서 \"마감노트\" 아이콘을 찾아서 클릭하세요.'**
+  /// **'공고 페이지 우측 하단에 있는 파란색 [일정 등록] 버튼을 클릭하면 정보가 자동으로 저장됩니다!'**
   String get howToStep3Desc;
-
-  /// No description provided for @howToStep4Title.
-  ///
-  /// In ko, this message translates to:
-  /// **'4. 자동 입력 확인 및 저장'**
-  String get howToStep4Title;
-
-  /// No description provided for @howToStep4Desc.
-  ///
-  /// In ko, this message translates to:
-  /// **'회사명, 공고 제목, 마감일이 자동으로 추출됩니다. 확인 후 \"저장\" 버튼을 누르면 끝!'**
-  String get howToStep4Desc;
 
   /// No description provided for @encouragement1.
   ///

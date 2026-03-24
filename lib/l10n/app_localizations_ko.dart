@@ -821,7 +821,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get parseWarningTitle => '공고 제목을 자동으로 찾지 못했어요.';
 
   @override
-  String get shareInstruction => '채용 사이트 등에서 “공유”로 링크를 보내면 자동으로 채워져요.';
+  String get shareInstruction => '채용 사이트에서 [일정 등록] 버튼만 누르면\n공고 내용이 자동으로 저장됩니다!';
 
   @override
   String get howToUse => '사용방법 확인하기';
@@ -833,30 +833,23 @@ class AppLocalizationsKo extends AppLocalizations {
   String get howToUseTitle => '사용방법';
 
   @override
-  String get howToStep1Title => '1. 브라우저 메뉴 열기';
+  String get howToStep1Title => '1. 추천 채용 사이트 선택';
 
   @override
-  String get howToStep1Desc =>
-      '채용 앱이나 브라우저에서 공고를 확인 중이라면 우측 하단의 \"메뉴 아이콘\"을 클릭하세요.';
+  String get howToStep1Desc => '원하는 채용 사이트를 클릭하여 접속하세요.';
 
   @override
-  String get howToStep2Title => '2. 공유 버튼 선택';
+  String get howToStep2Title => '2. 채용 공고 선택';
 
   @override
-  String get howToStep2Desc => '메뉴 팝업이 나타나면 우측 상단의 \"공유 아이콘\"을 클릭합니다.';
+  String get howToStep2Desc => '지원하고자 하는 채용 공고를 선택해 주세요.';
 
   @override
-  String get howToStep3Title => '3. 마감노트 앱 선택';
+  String get howToStep3Title => '3. [일정 등록] 버튼 클릭';
 
   @override
-  String get howToStep3Desc => '공유 목록에서 \"마감노트\" 아이콘을 찾아서 클릭하세요.';
-
-  @override
-  String get howToStep4Title => '4. 자동 입력 확인 및 저장';
-
-  @override
-  String get howToStep4Desc =>
-      '회사명, 공고 제목, 마감일이 자동으로 추출됩니다. 확인 후 \"저장\" 버튼을 누르면 끝!';
+  String get howToStep3Desc =>
+      '공고 페이지 우측 하단에 있는 파란색 [일정 등록] 버튼을 클릭하면 정보가 자동으로 저장됩니다!';
 
   @override
   String get encouragement1 => '아쉽지만 괜찮아요. 다음 기회가 있어요.';

@@ -34,7 +34,7 @@ class SettingsScreen extends StatelessWidget {
                         children: [
                           CircleAvatar(
                             radius: 16,
-                            backgroundColor: cs.primary.withValues(alpha: 0.1),
+                            backgroundColor: cs.primary.withOpacity(0.1),
                             foregroundColor: cs.primary,
                             child: const Icon(Icons.person, size: 16),
                           ),
@@ -173,12 +173,12 @@ class SettingsScreen extends StatelessWidget {
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [cs.primary.withValues(alpha: 0.08), cs.secondary.withValues(alpha: 0.08)],
+                        colors: [cs.primary.withOpacity(0.08), cs.secondary.withOpacity(0.08)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: cs.primary.withValues(alpha: 0.1)),
+                      border: Border.all(color: cs.primary.withOpacity(0.1)),
                     ),
                     child: Material(
                       color: Colors.transparent,
@@ -202,7 +202,7 @@ class SettingsScreen extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.05),
+                                      color: Colors.black.withOpacity(0.05),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -256,7 +256,7 @@ class SettingsScreen extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                              Icon(Icons.arrow_forward_ios, size: 14, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                              Icon(Icons.arrow_forward_ios, size: 14, color: cs.onSurfaceVariant.withOpacity(0.4)),
                             ],
                           ),
                         ),
@@ -277,7 +277,7 @@ class SettingsScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

@@ -883,13 +883,6 @@ class AppLocalizationsHi extends AppLocalizations {
       'शेयर सूची में \"डेडलाइन नोट\" आइकन ढूंढें और क्लिक करें।';
 
   @override
-  String get howToStep4Title => '4. ऑटो-एंट्री जांचें और सहेजें';
-
-  @override
-  String get howToStep4Desc =>
-      'कंपनी का नाम, जॉब टाइटल और डेडलाइन अपने आप निकल जाएगी। जांचें और \"सहेजें\" पर क्लिक करें!';
-
-  @override
   String get encouragement1 => 'कोई बात नहीं। दूसरा अवसर मिलेगा।';
 
   @override

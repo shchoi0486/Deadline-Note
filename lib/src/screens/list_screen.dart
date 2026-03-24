@@ -52,7 +52,7 @@ class _ListScreenState extends State<ListScreen> {
                           children: [
                             CircleAvatar(
                               radius: 16,
-                              backgroundColor: cs.primary.withValues(alpha: 0.1),
+                              backgroundColor: cs.primary.withOpacity(0.1),
                               foregroundColor: cs.primary,
                               child: const Icon(Icons.person, size: 16),
                             ),
@@ -196,18 +196,18 @@ class _StatusSection extends StatelessWidget {
     
     if (customColorValue != null) {
       final color = Color(customColorValue);
-      return (bg: color, fg: Colors.black.withValues(alpha: 0.7));
+      return (bg: color, fg: Colors.black.withOpacity(0.7));
     }
 
     // 기본 색상 (커스텀 설정이 없는 경우)
     if (d.status == JobStatus.document) {
-      return (bg: _docPink, fg: Colors.black.withValues(alpha: 0.7));
+      return (bg: _docPink, fg: Colors.black.withOpacity(0.7));
     }
     if (d.status == JobStatus.videoInterview) {
-      return (bg: _aptOrange, fg: Colors.black.withValues(alpha: 0.7));
+      return (bg: _aptOrange, fg: Colors.black.withOpacity(0.7));
     }
     if (d.status.isInterviewGroup) {
-      return (bg: _interviewGreen, fg: Colors.black.withValues(alpha: 0.7));
+      return (bg: _interviewGreen, fg: Colors.black.withOpacity(0.7));
     }
     return (bg: cs.primaryContainer, fg: cs.onPrimaryContainer);
   }
@@ -251,7 +251,7 @@ class _StatusSection extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+                  border: Border.all(color: Colors.grey.withOpacity(0.15)),
                 ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
@@ -270,9 +270,9 @@ class _StatusSection extends StatelessWidget {
                             return Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: colors.bg.withValues(alpha: 0.3),
+                                color: colors.bg.withOpacity(0.3),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: colors.bg.withValues(alpha: 0.5)),
+                                border: Border.all(color: colors.bg.withOpacity(0.5)),
                               ),
                               child: Text(
                                 d.status.localizedBadgeLabel(l10n),

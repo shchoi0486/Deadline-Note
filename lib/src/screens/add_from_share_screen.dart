@@ -4,6 +4,7 @@ import 'package:deadline_note/l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'add_manual_screen.dart';
+import 'job_browser_screen.dart';
 import '../services/job_link_parser.dart';
 import '../models/job_site.dart';
 import '../models/deadline_type.dart';
@@ -166,7 +167,7 @@ class _AddFromShareScreenState extends State<AddFromShareScreen> {
                           children: [
                             CircleAvatar(
                               radius: 16,
-                              backgroundColor: cs.primary.withValues(alpha: 0.1),
+                              backgroundColor: cs.primary.withOpacity(0.1),
                               foregroundColor: cs.primary,
                               child: const Icon(Icons.person, size: 16),
                             ),
@@ -208,101 +209,102 @@ class _AddFromShareScreenState extends State<AddFromShareScreen> {
               ),
               const AdPlaceholder(),
               // Fixed Top Content: URL Input & Manual Add Button
-              if (!autoMode)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 42,
-                              child: TextField(
-                                controller: _urlController,
-                                textAlignVertical: TextAlignVertical.center,
-                                decoration: InputDecoration(
-                                  hintText: l10n.jobPostUrl,
-                                  prefixIcon: Icon(Icons.link_rounded, size: 18, color: cs.primary),
-                                  filled: false,
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+              if (_parsed == null)
+                if (!autoMode)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 42,
+                                child: TextField(
+                                  controller: _urlController,
+                                  textAlignVertical: TextAlignVertical.center,
+                                  decoration: InputDecoration(
+                                    hintText: l10n.jobPostUrl,
+                                    prefixIcon: Icon(Icons.link_rounded, size: 18, color: cs.primary),
+                                    filled: false,
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(color: cs.primary, width: 1.5),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                                    isDense: true,
                                   ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(color: cs.primary, width: 1.5),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                                  isDense: true,
+                                  style: const TextStyle(fontSize: 14),
+                                  keyboardType: TextInputType.url,
+                                  textInputAction: TextInputAction.go,
+                                  onSubmitted: (_) => _runUrlAction(),
                                 ),
-                                style: const TextStyle(fontSize: 14),
-                                keyboardType: TextInputType.url,
-                                textInputAction: TextInputAction.go,
-                                onSubmitted: (_) => _runUrlAction(),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            height: 42,
-                            width: 42,
-                            child: IconButton.filled(
-                              onPressed: _loading ? null : _runUrlAction,
-                              icon: const Icon(Icons.arrow_forward_rounded, size: 20),
-                              style: IconButton.styleFrom(
-                                backgroundColor: cs.primary,
-                                foregroundColor: cs.onPrimary,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                padding: EdgeInsets.zero,
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              height: 42,
+                              width: 42,
+                              child: IconButton.filled(
+                                onPressed: _loading ? null : _runUrlAction,
+                                icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: cs.primary,
+                                  foregroundColor: cs.onPrimary,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  padding: EdgeInsets.zero,
+                                ),
                               ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        FilledButton.icon(
+                          onPressed: () async {
+                            final url = _urlController.text.trim();
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => AddManualScreen(prefillUrl: url.isEmpty ? null : url),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.edit_note_rounded, size: 18),
+                          label: Text(l10n.addMethodManual, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: cs.secondaryContainer,
+                            foregroundColor: cs.onSecondaryContainer,
+                            padding: const EdgeInsets.symmetric(vertical: 0),
+                            minimumSize: const Size.fromHeight(38),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      FilledButton.icon(
-                        onPressed: () async {
-                          final url = _urlController.text.trim();
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => AddManualScreen(prefillUrl: url.isEmpty ? null : url),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.edit_note_rounded, size: 18),
-                        label: Text(l10n.addMethodManual, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: cs.secondaryContainer,
-                          foregroundColor: cs.onSecondaryContainer,
-                          padding: const EdgeInsets.symmetric(vertical: 0),
-                          minimumSize: const Size.fromHeight(38),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _loading ? l10n.parsingInProgress : l10n.checkSharedPost,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        if (!_loading)
+                          IconButton.filledTonal(
+                            onPressed: _runUrlAction,
+                            icon: const Icon(Icons.arrow_circle_right),
+                          ),
+                      ],
+                    ),
                   ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _loading ? l10n.parsingInProgress : l10n.checkSharedPost,
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                      if (!_loading)
-                        IconButton.filledTonal(
-                          onPressed: _runUrlAction,
-                          icon: const Icon(Icons.arrow_circle_right),
-                        ),
-                    ],
-                  ),
-                ),
               // Bottom Content: Quick Links OR Parsing Result
               Expanded(
                 child: _loading
@@ -350,7 +352,7 @@ class _AddFromShareScreenState extends State<AddFromShareScreen> {
                                             style: TextButton.styleFrom(
                                               foregroundColor: cs.primary,
                                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                              backgroundColor: cs.primary.withValues(alpha: 0.05),
+                                              backgroundColor: cs.primary.withOpacity(0.05),
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                                             ),
                                           ),
@@ -381,9 +383,9 @@ class _AddFromShareScreenState extends State<AddFromShareScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        maxChildSize: 0.9,
-        minChildSize: 0.5,
+        initialChildSize: 0.6,
+        maxChildSize: 0.8,
+        minChildSize: 0.4,
         expand: false,
         builder: (context, scrollController) => Column(
           children: [
@@ -393,7 +395,7 @@ class _AddFromShareScreenState extends State<AddFromShareScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.3),
+                color: Colors.grey.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -404,38 +406,94 @@ class _AddFromShareScreenState extends State<AddFromShareScreen> {
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Expanded(
               child: ListView(
                 controller: scrollController,
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 children: [
-                  _buildHowToStep(
+                  Text(
                     l10n.howToStep1Title,
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.3),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
                     l10n.howToStep1Desc,
-                    'assets/images/onboarding/ins1.png',
-                    highlightAlignment: const Alignment(0.98, -0.15),
+                    style: const TextStyle(fontSize: 14, color: Color(0xFF666666), height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset(
+                        'assets/images/onboarding/ins_1.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 200,
+                          width: double.infinity,
+                          color: Colors.grey[100],
+                          child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 32),
-                  _buildHowToStep(
+                  Text(
                     l10n.howToStep2Title,
-                    l10n.howToStep2Desc,
-                    'assets/images/onboarding/ins2.png',
-                    highlightAlignment: const Alignment(0.85, -0.78),
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.3),
                   ),
-                  const SizedBox(height: 40),
-                  _buildHowToStep(
-                    l10n.howToStep3Title,
-                    l10n.howToStep3Desc,
-                    'assets/images/onboarding/ins3.png',
-                    highlightAlignment: const Alignment(0.09, 0.25),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.howToStep2Desc,
+                    style: const TextStyle(fontSize: 14, color: Color(0xFF666666), height: 1.4),
                   ),
                   const SizedBox(height: 32),
-                  _buildHowToStep(
-                    l10n.howToStep4Title,
-                    l10n.howToStep4Desc,
-                    'assets/images/onboarding/ins4.png',
-                    highlightAlignment: const Alignment(0.0, 0.71),
+                  Text(
+                    l10n.howToStep3Title,
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.3),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.howToStep3Desc,
+                    style: const TextStyle(fontSize: 14, color: Color(0xFF666666), height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset(
+                        'assets/images/onboarding/ins_2.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 200,
+                          width: double.infinity,
+                          color: Colors.grey[100],
+                          child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 40),
                 ],
@@ -476,10 +534,10 @@ class _AddFromShareScreenState extends State<AddFromShareScreen> {
         Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+            border: Border.all(color: Colors.grey.withOpacity(0.2)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: Colors.black.withOpacity(0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -509,7 +567,7 @@ class _AddFromShareScreenState extends State<AddFromShareScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.red, width: 3),
-                          color: Colors.red.withValues(alpha: 0.2),
+                          color: Colors.red.withOpacity(0.2),
                         ),
                       ),
                     ),
@@ -603,18 +661,28 @@ class _AddFromShareScreenState extends State<AddFromShareScreen> {
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 onTap: () async {
-                  final uri = Uri.parse(site['url']!);
-                  try {
-                    bool launched = await launchUrl(
-                      uri,
-                      mode: LaunchMode.externalNonBrowserApplication,
-                    );
-                    if (!launched) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    }
-                  } catch (_) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
+                  final appState = AppStateScope.of(context);
+                  final siteName = site['name']!;
+                  final lastUrl = appState.lastVisitedUrls[siteName];
+                  final initialUrl = lastUrl ?? site['url']!;
+
+                  await Navigator.of(context).push<String>(
+                    MaterialPageRoute(
+                      builder: (_) => JobBrowserScreen(
+                        initialUrl: initialUrl,
+                        homeUrl: site['url']!,
+                        title: siteName,
+                        onRegister: (url) async {
+                          if (!mounted) return;
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AddFromShareScreen(sharedText: url),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  );
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
@@ -622,7 +690,7 @@ class _AddFromShareScreenState extends State<AddFromShareScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: cs.outlineVariant.withValues(alpha: 0.3),
+                      color: cs.outlineVariant.withOpacity(0.3),
                     ),
                   ),
                   child: Row(

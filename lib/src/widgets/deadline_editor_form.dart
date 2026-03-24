@@ -179,163 +179,160 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             final l10n = AppLocalizations.of(context)!;
-            return Padding(
-              padding: EdgeInsets.only(bottom: viewInsetsBottom + safeBottom),
-              child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(l10n.nextStep, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 44,
-                        child: DropdownMenu<JobStatus>(
-                          width: double.infinity,
-                          initialSelection: nextStage,
-                          onSelected: (v) {
-                            if (v == null) return;
-                            setModalState(() => nextStage = v);
-                          },
-                          textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 15.0),
-                          dropdownMenuEntries: nextStageOptions
-                              .map(
-                                (s) => DropdownMenuEntry<JobStatus>(
-                                  value: s,
-                                  label: s.localizedLabel(l10n),
-                                  style: ButtonStyle(
-                                    textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 15)),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: viewInsetsBottom + 16),
+                child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l10n.nextStep, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: nextStageOptions.map((s) {
+                            final isSelected = nextStage == s;
+                            return ChoiceChip(
+                              label: Text(
+                                s.localizedLabel(l10n),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? cs.onPrimary : cs.onSurface,
                                 ),
-                              )
-                              .toList(growable: false),
-                          label: Text(l10n.nextStepDesc, style: const TextStyle(fontSize: 14.0)),
-                          inputDecorationTheme: InputDecorationTheme(
-                            isDense: true,
-                            filled: false,
-                            constraints: const BoxConstraints.tightFor(height: 44),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-                            ),
-                            labelStyle: TextStyle(fontSize: 14.0, color: cs.onSurfaceVariant),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        height: 44,
-                        child: InkWell(
-                          onTap: () => pickNextDate(setModalState),
-                          borderRadius: BorderRadius.circular(8),
-                          child: InputDecorator(
-                            decoration: InputDecoration(
-                              labelText: l10n.date,
-                              isDense: true,
-                              filled: false,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
                               ),
-                              labelStyle: TextStyle(fontSize: 14.0, color: cs.onSurfaceVariant),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    DateFormatters.ymd.format(nextDate),
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 15.0),
-                                  ),
+                              selected: isSelected,
+                              selectedColor: cs.primary,
+                              backgroundColor: cs.surfaceContainerHigh,
+                              checkmarkColor: cs.onPrimary,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setModalState(() => nextStage = s);
+                                }
+                              },
+                              side: BorderSide(
+                                color: isSelected ? cs.primary : Colors.grey.withOpacity(0.2),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          height: 44,
+                          child: InkWell(
+                            onTap: () => pickNextDate(setModalState),
+                            borderRadius: BorderRadius.circular(8),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: l10n.date,
+                                isDense: true,
+                                filled: false,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
                                 ),
-                                const SizedBox(width: 8),
-                                const Icon(Icons.event, size: 20),
-                              ],
+                                labelStyle: TextStyle(fontSize: 14.0, color: cs.onSurfaceVariant),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      DateFormatters.ymd.format(nextDate),
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 15.0),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.event, size: 20),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                child: Text(l10n.cancel),
                               ),
-                              child: Text(l10n.cancel),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: _submitting
-                                  ? null
-                                  : () async {
-                                      final company = _companyController.text.trim();
-                                      if (company.isEmpty) {
-                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.companyNameRequiredMsg)));
-                                        return;
-                                      }
-
-                                      final next = JobDeadline(
-                                        id: _randomId(),
-                                        companyName: company,
-                                        jobTitle: _titleController.text.trim(),
-                                        deadlineAt: nextDate,
-                                        deadlineType: _deadlineType,
-                                        linkUrl: _linkController.text.trim(),
-                                        site: widget.initial.site,
-                                        salary: _salaryController.text.trim(),
-                                        status: nextStage,
-                                        outcome: JobOutcome.none,
-                                        notificationsEnabled: _notificationsEnabled,
-                                        memo: '',
-                                        createdAt: DateTime.now(),
-                                        isEstimated: _isEstimated,
-                                        previousStepId: widget.initial.id,
-                                      );
-                                      try {
-                                        // 1. 바텀 시트 먼저 닫기
-                                        if (context.mounted) {
-                                          Navigator.of(context).pop();
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: _submitting
+                                    ? null
+                                    : () async {
+                                        final company = _companyController.text.trim();
+                                        if (company.isEmpty) {
+                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.companyNameRequiredMsg)));
+                                          return;
                                         }
 
-                                        // 2. 데이터 저장 (HomeShell의 리스너가 감지하여 탭 이동 및 팝 처리를 수행함)
-                                        await widget.onSubmit(next, silent: false);
-                                        
-                                        // 3. 광고 표시 (저장 후 UX 흐름상 표시)
-                                        if (context.mounted) {
-                                          await AdManager.showNativeAdDialog(context);
+                                        final next = JobDeadline(
+                                          id: _randomId(),
+                                          companyName: company,
+                                          jobTitle: _titleController.text.trim(),
+                                          deadlineAt: nextDate,
+                                          deadlineType: _deadlineType,
+                                          linkUrl: _linkController.text.trim(),
+                                          site: widget.initial.site,
+                                          salary: _salaryController.text.trim(),
+                                          status: nextStage,
+                                          outcome: JobOutcome.none,
+                                          notificationsEnabled: _notificationsEnabled,
+                                          memo: '',
+                                          createdAt: DateTime.now(),
+                                          isEstimated: _isEstimated,
+                                          previousStepId: widget.initial.id,
+                                        );
+                                        try {
+                                          // 1. 바텀 시트 먼저 닫기
+                                          if (context.mounted) {
+                                            Navigator.of(context).pop();
+                                          }
+
+                                          // 2. 데이터 저장 (HomeShell의 리스너가 감지하여 탭 이동 및 팝 처리를 수행함)
+                                          await widget.onSubmit(next, silent: false);
+                                          
+                                          // 3. 광고 표시 (저장 후 UX 흐름상 표시)
+                                          if (context.mounted) {
+                                            await AdManager.showNativeAdDialog(context);
+                                          }
+                                        } catch (e) {
+                                          if (!context.mounted) return;
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(SnackBar(content: Text(l10n.addNextStepError(e.toString()))));
                                         }
-                                      } catch (e) {
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(SnackBar(content: Text(l10n.addNextStepError(e.toString()))));
-                                      }
-                                    },
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      },
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                child: Text(l10n.add),
                               ),
-                              child: Text(l10n.add),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-          );
+              ),
+            );
+          },
+        );
         },
       );
     }
@@ -408,7 +405,7 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+          borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
         ),
         labelStyle: TextStyle(fontSize: 12.0, color: colorScheme.onSurfaceVariant),
       );
@@ -576,7 +573,7 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+                              borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
                             ),
                             labelStyle: TextStyle(fontSize: 12.0, color: colorScheme.onSurfaceVariant),
                           ),
@@ -618,8 +615,13 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
                         }
                       },
                       borderRadius: BorderRadius.circular(8),
-                      constraints: const BoxConstraints.tightFor(height: fieldHeight, width: 50),
-                      textStyle: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.w700),
+                      borderColor: colorScheme.primary.withOpacity(0.5), // 기본 테두리를 연한 파란색으로
+                      selectedBorderColor: colorScheme.primary, // 선택 시 진한 파란색
+                      fillColor: colorScheme.primary.withOpacity(0.1), // 선택 시 연한 파란색 배경
+                      selectedColor: colorScheme.primary, // 선택 시 글자색
+                      color: colorScheme.onSurfaceVariant, // 비선택 시 글자색
+                      constraints: const BoxConstraints.tightFor(height: fieldHeight, width: 52),
+                      textStyle: const TextStyle(fontSize: 12.0, fontWeight: FontWeight.w900),
                       children: [
                         Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(l10n.passed)),
                         Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(l10n.failed)),
@@ -698,7 +700,7 @@ class _DeadlineEditorFormState extends State<DeadlineEditorForm> {
                   foregroundColor: colorScheme.error,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  side: BorderSide(color: colorScheme.error.withValues(alpha: 0.5)),
+                  side: BorderSide(color: colorScheme.error.withOpacity(0.5)),
                 ),
                 child: Text(l10n.delete, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
               ),

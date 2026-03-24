@@ -7,10 +7,12 @@ plugins {
 
 import java.util.Properties
 
-val keystorePropertiesFile = rootProject.file("key.properties")
+val keystorePropertiesFile = rootProject.projectDir.resolve("key.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
+} else {
+    println("WARNING: key.properties not found at ${keystorePropertiesFile.absolutePath}")
 }
 
 android {

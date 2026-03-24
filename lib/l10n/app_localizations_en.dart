@@ -848,7 +848,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shareInstruction =>
-      'It will be automatically filled when you share links from job sites.';
+      'Click the [Register Schedule] button\non the job site to automatically extract info!';
 
   @override
   String get howToUse => 'How to use';
@@ -860,32 +860,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get howToUseTitle => 'How to use';
 
   @override
-  String get howToStep1Title => '1. Open Browser Menu';
+  String get howToStep1Title => '1. Select Job Site';
 
   @override
-  String get howToStep1Desc =>
-      'If you are checking a job post in a job app or browser, click the \"Menu Icon\" at the bottom right.';
+  String get howToStep1Desc => 'Select a job site you want to visit.';
 
   @override
-  String get howToStep2Title => '2. Select Share Button';
+  String get howToStep2Title => '2. Select Job Post';
 
   @override
-  String get howToStep2Desc =>
-      'When the menu popup appears, click the \"Share Icon\" at the top right.';
+  String get howToStep2Desc => 'Select a job post you want to apply for.';
 
   @override
-  String get howToStep3Title => '3. Select Deadline Note App';
+  String get howToStep3Title => '3. Click Register Schedule';
 
   @override
   String get howToStep3Desc =>
-      'Find and click the \"Deadline Note\" icon in the share list.';
-
-  @override
-  String get howToStep4Title => '4. Check Auto-entry and Save';
-
-  @override
-  String get howToStep4Desc =>
-      'Company name, job title, and deadline are automatically extracted. Check and click \"Save\"!';
+      'Click the blue [Register Schedule] button at the bottom right of the job post.';
 
   @override
   String get encouragement1 => 'It\'s okay. There will be another opportunity.';

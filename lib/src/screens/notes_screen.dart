@@ -5,6 +5,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:deadline_note/l10n/app_localizations.dart';
 
 import 'package:url_launcher/url_launcher.dart';
+import 'job_browser_screen.dart';
 
 import '../models/company_note.dart';
 import '../models/interview_notes.dart';
@@ -131,7 +132,6 @@ class NotesScreen extends StatefulWidget {
 class _NotesScreenState extends State<NotesScreen> with SingleTickerProviderStateMixin {
   final _storage = StorageService();
   late final TabController _tabController;
-  final GlobalKey<NavigatorState> _notesNavKey = GlobalKey<NavigatorState>();
 
   bool _loading = true;
   List<CompanyNote> _companies = const <CompanyNote>[];
@@ -143,11 +143,9 @@ class _NotesScreenState extends State<NotesScreen> with SingleTickerProviderStat
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      // 탭이 바뀌면 네비게이션 스택을 초기화하여 탭바와 탭바뷰가 일치하도록 함
+      // [수정] 탭 이동 완료 시 데이터 최신화 (다른 탭에서 추가된 일정 반영)
       if (!_tabController.indexIsChanging) {
-        if (_notesNavKey.currentState?.canPop() ?? false) {
-          _notesNavKey.currentState?.popUntil((route) => route.isFirst);
-        }
+        _load();
       }
     });
     _load();
@@ -157,10 +155,9 @@ class _NotesScreenState extends State<NotesScreen> with SingleTickerProviderStat
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final appState = AppStateScope.of(context);
       _tabSub = appState.onTabChange.listen((index) {
-        if (index == 3) { // Notes 탭이 다시 선택됨
-          if (_notesNavKey.currentState?.canPop() ?? false) {
-            _notesNavKey.currentState?.popUntil((route) => route.isFirst);
-          }
+        // [수정] Notes 탭이 다시 선택됨
+        if (index == 3) {
+          _load();
         }
       });
       Future.delayed(const Duration(seconds: 1), () {
@@ -237,7 +234,7 @@ class _NotesScreenState extends State<NotesScreen> with SingleTickerProviderStat
       updatedAt: now,
     );
 
-    final created = await _notesNavKey.currentState?.push<CompanyNote>(
+    final created = await Navigator.of(context).push<CompanyNote>(
       MaterialPageRoute(
         builder: (_) => CompanyNoteDetailScreen(
           initial: emptyNote,
@@ -254,7 +251,7 @@ class _NotesScreenState extends State<NotesScreen> with SingleTickerProviderStat
   }
 
   Future<void> _addSession(Map<String, String> companyRoles, {CompanyNote? company}) async {
-    final created = await _notesNavKey.currentState?.push<InterviewSession>(
+    final created = await Navigator.of(context).push<InterviewSession>(
       MaterialPageRoute(
         builder: (context) => _InterviewSessionEditorSheet(
           companies: _companies,
@@ -280,7 +277,7 @@ class _NotesScreenState extends State<NotesScreen> with SingleTickerProviderStat
       }
     }
 
-    final result = await _notesNavKey.currentState?.push(
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CompanyNoteDetailScreen(
           initial: note,
@@ -303,7 +300,7 @@ class _NotesScreenState extends State<NotesScreen> with SingleTickerProviderStat
   }
 
   Future<void> _openSession(InterviewSession session) async {
-    final result = await _notesNavKey.currentState?.push(
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => InterviewSessionDetailScreen(
           initial: session,
@@ -396,93 +393,64 @@ class _NotesScreenState extends State<NotesScreen> with SingleTickerProviderStat
       }
     }
 
-    // [수정] 탭 이동 시마다 데이터 최신화 (다른 탭에서 추가된 일정 반영)
-    _tabController.addListener(() {
-      if (_tabController.indexIsChanging) {
-        _loadData();
-      }
-    });
-
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        final nav = _notesNavKey.currentState;
-        if (nav != null && nav.canPop()) {
-          nav.pop();
-        } else {
-          // HomeShell로 이벤트 전파 (더 이상 팝할 게 없으면 HomeShell이 처리하도록 함)
-          Navigator.of(context).maybePop();
-        }
-      },
-      child: Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: [
-              _MainHeader(
-                title: l10n.noteTitle,
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            _MainHeader(
+              title: l10n.noteTitle,
+            ),
+            TabBar(
+              controller: _tabController,
+              isScrollable: false,
+              indicatorSize: TabBarIndicatorSize.tab,
+              labelStyle: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
               ),
-              TabBar(
-                controller: _tabController,
-                isScrollable: false,
-                indicatorSize: TabBarIndicatorSize.tab,
-                labelStyle: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                ),
-                unselectedLabelStyle: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-                tabs: [
-                  Tab(text: l10n.noteTabCompany),
-                  Tab(text: l10n.noteTabInterview),
-                ],
+              unselectedLabelStyle: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
               ),
-              Expanded(
-                child: _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : Navigator(
-                        key: _notesNavKey,
-                        onGenerateRoute: (settings) {
-                          return MaterialPageRoute(
-                            builder: (context) => Scaffold(
-                              body: TabBarView(
-                                controller: _tabController,
-                                children: [
-                                  _CompanyList(
-                                    companies: _companies,
-                                    onTapCompany: _openCompany,
-                                    onLongPressCompany: _deleteCompany,
-                                  ),
-                                  _SessionList(
-                                    sessions: _sessions,
-                                    onTapSession: _openSession,
-                                    onLongPressSession: _deleteSession,
-                                    colorScheme: cs,
-                                  ),
-                                ],
-                              ),
-                              floatingActionButton: FloatingActionButton(
-                                onPressed: _loading
-                                    ? null
-                                    : () {
-                                        if (_tabController.index == 0) {
-                                          _addCompany(companyRoles);
-                                        } else {
-                                          _addSession(companyRoles);
-                                        }
-                                      },
-                                child: const Icon(Icons.add),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
+              tabs: [
+                Tab(text: l10n.noteTabCompany),
+                Tab(text: l10n.noteTabInterview),
+              ],
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _CompanyList(
+                          companies: _companies,
+                          onTapCompany: _openCompany,
+                          onLongPressCompany: _deleteCompany,
+                        ),
+                        _SessionList(
+                          sessions: _sessions,
+                          onTapSession: _openSession,
+                          onLongPressSession: _deleteSession,
+                          colorScheme: cs,
+                        ),
+                      ],
+                    ),
+            ),
+          ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _loading
+            ? null
+            : () {
+                if (_tabController.index == 0) {
+                  _addCompany(companyRoles);
+                } else {
+                  _addSession(companyRoles);
+                }
+              },
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -526,7 +494,7 @@ class _MainHeader extends StatelessWidget {
                   else
                     CircleAvatar(
                       radius: 16,
-                      backgroundColor: cs.primary.withValues(alpha: 0.1),
+                      backgroundColor: cs.primary.withOpacity(0.1),
                       foregroundColor: cs.primary,
                       child: const Icon(Icons.person, size: 16),
                     ),
@@ -615,7 +583,7 @@ class _CompanyList extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+            border: Border.all(color: Colors.grey.withOpacity(0.15)),
           ),
           child: Material(
             color: Colors.transparent,
@@ -632,7 +600,7 @@ class _CompanyList extends StatelessWidget {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: cs.primaryContainer.withValues(alpha: 0.7),
+                        color: cs.primaryContainer.withOpacity(0.7),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       alignment: Alignment.center,
@@ -668,7 +636,7 @@ class _CompanyList extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Icon(Icons.chevron_right, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                    Icon(Icons.chevron_right, color: cs.onSurfaceVariant.withOpacity(0.5)),
                   ],
                 ),
               ),
@@ -718,7 +686,7 @@ class _SessionList extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+            border: Border.all(color: Colors.grey.withOpacity(0.15)),
           ),
           child: Material(
             color: Colors.transparent,
@@ -733,7 +701,7 @@ class _SessionList extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer.withValues(alpha: 0.7),
+                        color: colorScheme.primaryContainer.withOpacity(0.7),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -766,7 +734,7 @@ class _SessionList extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                    Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant.withOpacity(0.5)),
                   ],
                 ),
               ),
@@ -836,35 +804,41 @@ class _CompanyNoteEditorSheetState extends State<_CompanyNoteEditorSheet> {
         .toList(growable: false);
   }
 
-  Future<void> _launchSearch(String url) async {
+  Future<void> _launchSearch(String url, String name) async {
     final uri = Uri.parse(url);
-    try {
-      bool launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalNonBrowserApplication,
-      );
-      if (!launched) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    final homeUrl = '${uri.scheme}://${uri.host}';
+    
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => JobBrowserScreen(
+          initialUrl: url,
+          homeUrl: homeUrl,
+          title: name,
+        ),
+      ),
+    );
   }
 
   Widget _buildExternalLinkButton(String label, String url, Color color, IconData icon) {
     final isEnabled = _companyController.text.trim().isNotEmpty;
-    final displayColor = isEnabled ? color : Colors.grey.withValues(alpha: 0.5);
+    final displayColor = isEnabled ? color : Colors.grey.withOpacity(0.5);
+    final appState = AppStateScope.of(context);
 
     return Expanded(
       child: InkWell(
-        onTap: isEnabled ? () => _launchSearch(url) : null,
+        onTap: isEnabled
+            ? () {
+                final lastUrl = appState.lastVisitedUrls[label];
+                _launchSearch(lastUrl ?? url, label);
+              }
+            : null,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: displayColor.withValues(alpha: 0.08),
+            color: displayColor.withOpacity(0.08),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: displayColor.withValues(alpha: 0.2)),
+            border: Border.all(color: displayColor.withOpacity(0.2)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -917,11 +891,11 @@ class _CompanyNoteEditorSheetState extends State<_CompanyNoteEditorSheet> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+          borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.4)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+          borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.4)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
@@ -935,7 +909,7 @@ class _CompanyNoteEditorSheetState extends State<_CompanyNoteEditorSheet> {
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         hintStyle: TextStyle(
-          color: cs.onSurfaceVariant.withValues(alpha: 0.35), 
+          color: cs.onSurfaceVariant.withOpacity(0.35), 
           fontSize: 14,
           fontWeight: FontWeight.w400,
         ),
@@ -973,7 +947,7 @@ class _CompanyNoteEditorSheetState extends State<_CompanyNoteEditorSheet> {
                     ),
                   ),
                   Material(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
@@ -1010,11 +984,11 @@ class _CompanyNoteEditorSheetState extends State<_CompanyNoteEditorSheet> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(borderRadius),
-                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.4)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(borderRadius),
-                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.4)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(borderRadius),
@@ -1355,19 +1329,19 @@ class _InterviewSessionEditorSheetState extends State<_InterviewSessionEditorShe
     if (mounted) setState(() {});
   }
 
-  Future<void> _launchSearch(String url) async {
+  Future<void> _launchSearch(String url, String name) async {
     final uri = Uri.parse(url);
-    try {
-      bool launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalNonBrowserApplication,
-      );
-      if (!launched) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    final homeUrl = '${uri.scheme}://${uri.host}';
+    
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => JobBrowserScreen(
+          initialUrl: url,
+          homeUrl: homeUrl,
+          title: name,
+        ),
+      ),
+    );
   }
 
   String _getPitfallLabel(String key, AppLocalizations l10n) {
@@ -1391,18 +1365,24 @@ class _InterviewSessionEditorSheetState extends State<_InterviewSessionEditorShe
 
   Widget _buildExternalLinkButton(String name, String url, Color color, IconData icon) {
     final isEnabled = _companyController.text.trim().isNotEmpty;
-    final displayColor = isEnabled ? color : Colors.grey.withValues(alpha: 0.5);
+    final displayColor = isEnabled ? color : Colors.grey.withOpacity(0.5);
+    final appState = AppStateScope.of(context);
 
     return Expanded(
       child: InkWell(
-        onTap: isEnabled ? () => _launchSearch(url) : null,
+        onTap: isEnabled
+            ? () {
+                final lastUrl = appState.lastVisitedUrls[name];
+                _launchSearch(lastUrl ?? url, name);
+              }
+            : null,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: displayColor.withValues(alpha: 0.08),
+            color: displayColor.withOpacity(0.08),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: displayColor.withValues(alpha: 0.2)),
+            border: Border.all(color: displayColor.withOpacity(0.2)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1456,10 +1436,10 @@ class _InterviewSessionEditorSheetState extends State<_InterviewSessionEditorShe
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? color : color.withValues(alpha: 0.1),
+              color: isSelected ? color : color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected ? color : color.withValues(alpha: 0.3),
+                color: isSelected ? color : color.withOpacity(0.3),
                 width: isSelected ? 2 : 1,
               ),
             ),
@@ -1532,11 +1512,11 @@ class _InterviewSessionEditorSheetState extends State<_InterviewSessionEditorShe
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+          borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.4)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+          borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.4)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
@@ -1550,7 +1530,7 @@ class _InterviewSessionEditorSheetState extends State<_InterviewSessionEditorShe
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         hintStyle: TextStyle(
-          color: cs.onSurfaceVariant.withValues(alpha: 0.35), 
+          color: cs.onSurfaceVariant.withOpacity(0.35), 
           fontSize: 14,
           fontWeight: FontWeight.w400,
         ),
@@ -1614,11 +1594,11 @@ class _InterviewSessionEditorSheetState extends State<_InterviewSessionEditorShe
                       suffixIconColor: Theme.of(context).colorScheme.primary,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(borderRadius),
-                        borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                        borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.4)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(borderRadius),
-                        borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                        borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.4)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(borderRadius),
@@ -1756,11 +1736,11 @@ class _InterviewSessionEditorSheetState extends State<_InterviewSessionEditorShe
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(borderRadius),
-                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.4)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(borderRadius),
-                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.4)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(borderRadius),
@@ -1819,11 +1799,11 @@ class _InterviewSessionEditorSheetState extends State<_InterviewSessionEditorShe
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(borderRadius),
-                        borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                        borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.4)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(borderRadius),
-                        borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                        borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.4)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(borderRadius),
@@ -1977,9 +1957,9 @@ class _InterviewSessionEditorSheetState extends State<_InterviewSessionEditorShe
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2501,35 +2481,41 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
     }
   }
 
-  Future<void> _launchSearch(String url) async {
+  Future<void> _launchSearch(String url, String name) async {
     final uri = Uri.parse(url);
-    try {
-      bool launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalNonBrowserApplication,
-      );
-      if (!launched) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    final homeUrl = '${uri.scheme}://${uri.host}';
+    
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => JobBrowserScreen(
+          initialUrl: url,
+          homeUrl: homeUrl,
+          title: name,
+        ),
+      ),
+    );
   }
 
   Widget _buildExternalLinkButton(String label, String url, Color color, IconData icon) {
     final isEnabled = _companyController.text.trim().isNotEmpty;
-    final displayColor = isEnabled ? color : Colors.grey.withValues(alpha: 0.5);
+    final displayColor = isEnabled ? color : Colors.grey.withOpacity(0.5);
+    final appState = AppStateScope.of(context);
 
     return Expanded(
       child: InkWell(
-        onTap: isEnabled ? () => _launchSearch(url) : null,
+        onTap: isEnabled
+            ? () {
+                final lastUrl = appState.lastVisitedUrls[label];
+                _launchSearch(lastUrl ?? url, label);
+              }
+            : null,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: displayColor.withValues(alpha: 0.08),
+            color: displayColor.withOpacity(0.08),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: displayColor.withValues(alpha: 0.2)),
+            border: Border.all(color: displayColor.withOpacity(0.2)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -2754,11 +2740,11 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+          borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.4)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+          borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.4)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
@@ -2772,7 +2758,7 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         hintStyle: TextStyle(
-          color: cs.onSurfaceVariant.withValues(alpha: 0.35), 
+          color: cs.onSurfaceVariant.withOpacity(0.35), 
           fontSize: 14,
           fontWeight: FontWeight.w400,
         ),
@@ -2856,11 +2842,11 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(borderRadius),
-                                borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+                                borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.4)),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(borderRadius),
-                                borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+                                borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.4)),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(borderRadius),
@@ -3090,7 +3076,7 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
                           decoration: BoxDecoration(
                             color: cs.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+                            border: Border.all(color: cs.outlineVariant.withOpacity(0.3)),
                           ),
                           child: Material(
                             color: Colors.transparent,
@@ -3114,10 +3100,17 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
                                         if (s.evidenceUrl.trim().isNotEmpty)
                                           InkWell(
                                             onTap: () async {
-                                              final uri = Uri.tryParse(s.evidenceUrl);
-                                              if (uri != null && await canLaunchUrl(uri)) {
-                                                await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                              }
+                                              final uri = Uri.parse(s.evidenceUrl.trim());
+                                              final homeUrl = '${uri.scheme}://${uri.host}';
+                                              await Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => JobBrowserScreen(
+                                                    initialUrl: s.evidenceUrl,
+                                                    homeUrl: homeUrl,
+                                                    title: '증거자료',
+                                                  ),
+                                                ),
+                                              );
                                             },
                                             borderRadius: BorderRadius.circular(20),
                                             child: Padding(
@@ -3171,7 +3164,7 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
                               decoration: BoxDecoration(
                                 color: cs.surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+                                border: Border.all(color: cs.outlineVariant.withOpacity(0.3)),
                               ),
                               child: Material(
                                 color: Colors.transparent,
@@ -3201,7 +3194,7 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
                           decoration: BoxDecoration(
                             color: cs.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+                            border: Border.all(color: cs.outlineVariant.withOpacity(0.3)),
                           ),
                           padding: const EdgeInsets.all(16),
                           width: double.infinity,
@@ -3266,7 +3259,7 @@ class _CompanyNoteDetailScreenState extends State<CompanyNoteDetailScreen> {
           decoration: BoxDecoration(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
+            border: Border.all(color: color.withOpacity(0.3)),
           ),
           child: _buildMarkdownText(
             context,
@@ -3333,10 +3326,17 @@ class _EditableAnalysisCard extends StatefulWidget {
           ),
           recognizer: TapGestureRecognizer()
             ..onTap = () async {
-              final uri = Uri.tryParse(linkUrl);
-              if (uri != null && await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
+              final uri = Uri.parse(linkUrl.trim());
+              final homeUrl = '${uri.scheme}://${uri.host}';
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => JobBrowserScreen(
+                    initialUrl: linkUrl,
+                    homeUrl: homeUrl,
+                    title: '링크',
+                  ),
+                ),
+              );
             },
         ));
       } else if (match.group(4) != null) {
@@ -3447,7 +3447,7 @@ class _EditableAnalysisCardState extends State<_EditableAnalysisCard> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: widget.color.withValues(alpha: 0.3)),
+                borderSide: BorderSide(color: widget.color.withOpacity(0.3)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -3526,7 +3526,7 @@ class _EditableAnalysisCardState extends State<_EditableAnalysisCard> {
               decoration: BoxDecoration(
                 color: Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: widget.color.withValues(alpha: 0.3)),
+                border: Border.all(color: widget.color.withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3536,7 +3536,7 @@ class _EditableAnalysisCardState extends State<_EditableAnalysisCard> {
                       onTap: () => setState(() => _isEditing = true),
                       child: Text(
                         l10n.noteAiAutoFillHint,
-                        style: TextStyle(color: cs.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 13),
+                        style: TextStyle(color: cs.onSurfaceVariant.withOpacity(0.5), fontSize: 13),
                       ),
                     )
                   else
@@ -3739,9 +3739,9 @@ class _StoryEditorSheetState extends State<_StoryEditorSheet> {
             decoration: InputDecoration(
               labelText: label,
               hintText: hint,
-              hintStyle: TextStyle(color: cs.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 13),
+              hintStyle: TextStyle(color: cs.onSurfaceVariant.withOpacity(0.5), fontSize: 13),
               filled: true,
-              fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+              fillColor: cs.surfaceContainerHighest.withOpacity(0.3),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -3784,9 +3784,9 @@ class _StoryEditorSheetState extends State<_StoryEditorSheet> {
               decoration: InputDecoration(
                 labelText: l10n.noteEpisodeTitle,
                 hintText: l10n.noteEpisodeTitleHint,
-                hintStyle: TextStyle(color: cs.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 13),
+                hintStyle: TextStyle(color: cs.onSurfaceVariant.withOpacity(0.5), fontSize: 13),
                 filled: true,
-                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                fillColor: cs.surfaceContainerHighest.withOpacity(0.3),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -3798,9 +3798,9 @@ class _StoryEditorSheetState extends State<_StoryEditorSheet> {
               decoration: InputDecoration(
                 labelText: l10n.noteEpisodeMetrics,
                 hintText: l10n.noteEpisodeMetricsHint,
-                hintStyle: TextStyle(color: cs.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 13),
+                hintStyle: TextStyle(color: cs.onSurfaceVariant.withOpacity(0.5), fontSize: 13),
                 filled: true,
-                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                fillColor: cs.surfaceContainerHighest.withOpacity(0.3),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -3818,9 +3818,9 @@ class _StoryEditorSheetState extends State<_StoryEditorSheet> {
               decoration: InputDecoration(
                 labelText: l10n.noteEpisodeEvidence,
                 hintText: l10n.noteEpisodeEvidenceHint,
-                hintStyle: TextStyle(color: cs.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 13),
+                hintStyle: TextStyle(color: cs.onSurfaceVariant.withOpacity(0.5), fontSize: 13),
                 filled: true,
-                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                fillColor: cs.surfaceContainerHighest.withOpacity(0.3),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -4013,11 +4013,11 @@ class _SimpleQuestionEditorSheetState extends State<_SimpleQuestionEditorSheet> 
                 labelText: l10n.noteQuestionLabel,
                 hintText: l10n.noteQuestionHint,
                 hintStyle: TextStyle(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  color: cs.onSurfaceVariant.withOpacity(0.5),
                   fontSize: 13,
                 ),
                 filled: true,
-                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                fillColor: cs.surfaceContainerHighest.withOpacity(0.3),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -4239,7 +4239,7 @@ class _InterviewSessionDetailScreenState extends State<InterviewSessionDetailScr
                           decoration: BoxDecoration(
                             color: cs.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+                            border: Border.all(color: cs.outlineVariant.withOpacity(0.3)),
                           ),
                           child: Material(
                             color: Colors.transparent,
@@ -4525,10 +4525,10 @@ class _QuestionEditorSheetState extends State<_QuestionEditorSheet> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? color : color.withValues(alpha: 0.1),
+              color: isSelected ? color : color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected ? color : color.withValues(alpha: 0.3),
+                color: isSelected ? color : color.withOpacity(0.3),
                 width: isSelected ? 2 : 1,
               ),
             ),
@@ -4613,9 +4613,9 @@ class _QuestionEditorSheetState extends State<_QuestionEditorSheet> {
               decoration: InputDecoration(
                 labelText: l10n.noteQuestionLabel,
                 hintText: l10n.noteQuestionHint,
-                hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 13),
+                hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5), fontSize: 13),
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -4644,9 +4644,9 @@ class _QuestionEditorSheetState extends State<_QuestionEditorSheet> {
               decoration: InputDecoration(
                 labelText: l10n.noteAnswerAtTheTime,
                 hintText: l10n.inputMyAnswerHint,
-                hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 13),
+                hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5), fontSize: 13),
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -4733,9 +4733,9 @@ class _QuestionEditorSheetState extends State<_QuestionEditorSheet> {
                 decoration: InputDecoration(
                   labelText: l10n.noteIntent,
                   hintText: l10n.noteIntentHint,
-                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 13),
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5), fontSize: 13),
                   filled: true,
-                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -4770,9 +4770,9 @@ class _QuestionEditorSheetState extends State<_QuestionEditorSheet> {
                           decoration: InputDecoration(
                             labelText: l10n.noteImproved60,
                             hintText: l10n.noteImproved60Hint,
-                            hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 13),
+                            hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5), fontSize: 13),
                             filled: true,
-                            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                             floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -4806,9 +4806,9 @@ class _QuestionEditorSheetState extends State<_QuestionEditorSheet> {
                 decoration: InputDecoration(
                   labelText: l10n.noteImproved120,
                   hintText: l10n.noteImproved120Hint,
-                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 13),
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5), fontSize: 13),
                   filled: true,
-                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -4849,7 +4849,7 @@ class _QuestionEditorSheetState extends State<_QuestionEditorSheet> {
                       }
                     }),
                     side: BorderSide.none,
-                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                     selectedColor: Theme.of(context).colorScheme.primaryContainer,
                     labelStyle: TextStyle(
                       color: selected ? Theme.of(context).colorScheme.onPrimaryContainer : Theme.of(context).colorScheme.onSurfaceVariant,
@@ -4866,9 +4866,9 @@ class _QuestionEditorSheetState extends State<_QuestionEditorSheet> {
                 decoration: InputDecoration(
                   labelText: l10n.noteNextActionLabel,
                   hintText: l10n.noteNextActionHint,
-                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 13),
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5), fontSize: 13),
                   filled: true,
-                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -4898,7 +4898,7 @@ class _QuestionEditorSheetState extends State<_QuestionEditorSheet> {
               decoration: InputDecoration(
                 labelText: l10n.noteReviewStatus,
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 floatingLabelBehavior: FloatingLabelBehavior.always,

@@ -36,6 +36,15 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
     _nativeAd = NativeAd(
       adUnitId: AdHelper.nativeAdUnitId,
       request: const AdRequest(),
+      nativeAdOptions: NativeAdOptions(
+        videoOptions: VideoOptions(
+          startMuted: true,
+          clickToExpandRequested: true,
+          customControlsRequested: false,
+        ),
+        adChoicesPlacement: AdChoicesPlacement.topRightCorner,
+        mediaAspectRatio: MediaAspectRatio.any,
+      ),
       listener: NativeAdListener(
         onAdLoaded: (ad) {
           if (mounted && ad == _nativeAd && !_isDisposed) {
@@ -102,7 +111,7 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
 
     if (_isLoaded && _nativeAd != null && !_isDisposed) {
       return Container(
-        height: 180,
+        height: 220,
         width: double.infinity,
         padding: const EdgeInsets.all(8),
         child: AdWidget(ad: _nativeAd!),
@@ -110,7 +119,7 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
     }
     
     return SizedBox(
-      height: 180,
+      height: 220,
       child: Center(
         child: _hasError
           ? Column(

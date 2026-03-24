@@ -522,8 +522,16 @@ _PartialJobData _parseJobKorea(dom.Document doc, String title, String desc, Stri
     '.salary',
     '.salary_info',
     '.salary-info',
+    '.salary_area',
+    '.item_salary',
+    '.salary_text',
+    '.info_salary',
     '.info_item .salary',
     '.item_info .salary',
+    '.info_area .salary',
+    '#salary',
+    '.salary_info_area',
+    '.salary-value',
   ];
   
   for (final s in jkSelectors) {
@@ -571,8 +579,28 @@ _PartialJobData _parseJobKorea(dom.Document doc, String title, String desc, Stri
 
 _PartialJobData _parseSaramin(dom.Document doc, String title, String desc, String writer) {
   // 사람인 특화 추출
-  final coName = doc.querySelector('.company_name')?.text.trim() ?? '';
-  final jobTitle = doc.querySelector('.job_title')?.text.trim() ?? '';
+  final coName = doc.querySelector('.company_name')?.text.trim() ?? 
+                 doc.querySelector('.view_header .company_name')?.text.trim() ??
+                 doc.querySelector('.company_info .name')?.text.trim() ??
+                 doc.querySelector('.header_group .company_name')?.text.trim() ??
+                 doc.querySelector('.top_info .company_name')?.text.trim() ??
+                 doc.querySelector('.view_info .company_name')?.text.trim() ??
+                 doc.querySelector('.company-name')?.text.trim() ??
+                 doc.querySelector('.co_name')?.text.trim() ??
+                 doc.querySelector('.co-name')?.text.trim() ??
+                 doc.querySelector('.companyName')?.text.trim() ??
+                 doc.querySelector('.corp_name')?.text.trim() ?? '';
+  
+  // 연도 문자열(2024년 등)이 회사명으로 오인되는 것 방지
+  final yearRegex = RegExp(r'^\d{4}년?$');
+  bool isValidCoName = coName.isNotEmpty && !yearRegex.hasMatch(coName);
+  
+  final jobTitle = doc.querySelector('.job_title')?.text.trim() ?? 
+                   doc.querySelector('.view_header .job_title')?.text.trim() ??
+                   doc.querySelector('.header_group .job_title')?.text.trim() ??
+                   doc.querySelector('.top_info .job_title')?.text.trim() ??
+                   doc.querySelector('.view_info .job_title')?.text.trim() ??
+                   doc.querySelector('.job-title')?.text.trim() ?? '';
 
   final bodyText = doc.body?.text ?? '';
   final isRolling = _isRollingDeadline(description: desc, bodyText: bodyText);
@@ -593,7 +621,7 @@ _PartialJobData _parseSaramin(dom.Document doc, String title, String desc, Strin
   }
 
   return (
-    companyName: coName.isNotEmpty ? coName : _guessCompanyFromTitle(title),
+    companyName: isValidCoName ? coName : _guessCompanyFromTitle(title),
     jobTitle: jobTitle.isNotEmpty ? jobTitle : _guessJobTitleFromAny(site: JobSite.saramin, title: title),
     deadlineAt: date ?? estimatedDate,
     deadlineType: date != null ? DeadlineType.fixedDate : (isRolling ? DeadlineType.rolling : DeadlineType.unknown),
@@ -736,45 +764,66 @@ _PartialJobData _parseAlbamon(dom.Document doc, String title, String desc, Strin
   // 회사명 정제 함수 (태그 제거 등)
   String cleanCoName(String name) {
     if (name.isEmpty) return '';
-    // '#'이 포함된 단어들을 모두 제거
+    
+    // 1. '#'이 포함된 단어들을 모두 제거 (태그 형태)
     final words = name.split(RegExp(r'\s+'));
     final filtered = words.where((word) => !word.contains('#')).join(' ').trim();
     
-    // 만약 정제 후에도 '#'이 남아있거나(예: 단어 중간에 #), 
+    // 2. 만약 정제 후에도 '#'이 남아있거나(예: 단어 중간에 #), 
     // 정제 후의 결과가 원래 텍스트와 너무 다르면(태그만 있었던 경우) 비어있는 것으로 간주
     if (filtered.contains('#') || (name.contains('#') && filtered.isEmpty)) {
       return '';
     }
+
+    // 3. 문장 형태의 긴 설명 제거 (예: "이직확인서 가능 단순상담...")
+    // 회사명은 보통 15자 이내이며, 동사가 포함되지 않음
+    if (filtered.length > 20 || filtered.contains('가능') || filtered.contains('모집') || filtered.contains('상담')) {
+      return '';
+    }
+
     return filtered;
   }
 
-  // 1. "기업정보" 섹션에서 실제 사업자명 찾기 (가장 정확함)
-  final companyInfoSelectors = [
-    '.company_info .name',
-    '.companyInfo .name',
-    '.co_info .name',
-    '.company_name',
-    '.coName'
+  // 1. 브랜드명 찾기 (예: "브랜드 삼성디지털프라자") - 사용자 요청에 따라 우선순위 상향
+  final brandSelectors = [
+    '.brand_name', 
+    '.brand', 
+    '.brandName', 
+    '#brandName',
+    '.brand_info .name',
+    '.brandInfo .name'
   ];
-  for (final s in companyInfoSelectors) {
+  for (final s in brandSelectors) {
     final el = doc.querySelector(s);
     if (el != null && el.text.trim().isNotEmpty) {
-      coName = cleanCoName(el.text.trim());
-      if (coName.isNotEmpty && !coName.contains('#')) break;
+      String val = el.text.trim();
+      // "브랜드" 텍스트가 포함되어 있으면 제거
+      val = val.replaceFirst('브랜드', '').trim();
+      final cleaned = cleanCoName(val);
+      if (cleaned.isNotEmpty) {
+        coName = cleaned;
+        break;
+      }
     }
   }
 
-  // 2. 브랜드명 찾기 (예: "브랜드 쿠팡헬퍼")
+  // 2. "기업정보" 섹션에서 실제 사업자명 찾기 (브랜드가 없을 경우)
   if (coName.isEmpty) {
-    final brandSelectors = ['.brand_name', '.brand', '.brandName', '#brandName'];
-    for (final s in brandSelectors) {
+    final companyInfoSelectors = [
+      '.company_info .name',
+      '.companyInfo .name',
+      '.co_info .name',
+      '.company_name',
+      '.coName'
+    ];
+    for (final s in companyInfoSelectors) {
       final el = doc.querySelector(s);
       if (el != null && el.text.trim().isNotEmpty) {
-        String val = el.text.trim();
-        // "브랜드" 텍스트가 포함되어 있으면 제거
-        val = val.replaceFirst('브랜드', '').trim();
-        coName = cleanCoName(val);
-        if (coName.isNotEmpty) break;
+        final cleaned = cleanCoName(el.text.trim());
+        if (cleaned.isNotEmpty && !cleaned.contains('#')) {
+          coName = cleaned;
+          break;
+        }
       }
     }
   }
@@ -1855,6 +1904,12 @@ String _cleanCompanyName(String name) {
   if (lower == 'indeed' || lower == 'indeed.com' || lower.contains('just a moment')) {
     return '';
   }
+
+  // 연도 문자열(2024년, 2025년 등)은 회사명이 아닐 가능성이 높음
+  final yearRegex = RegExp(r'^\d{4}년?$');
+  if (yearRegex.hasMatch(name)) {
+    return '';
+  }
   
   // 1. (주), 주식회사 등 법인 형태 제거
   String cleaned = name
@@ -1888,23 +1943,29 @@ String _guessCompanyFromTitle(String title) {
     '정규직', '계약직', '파견직', '아르바이트', '알바', '모집', '채용', '급구', '단기', '장기', 
     '신입', '경력', '무관', '우대', '전체', '상시', '대규모', '전국', '서울', '경기', '인천',
     '년 상반기', '년 하반기', 'NEXT CAREER', '공채', '특채', '상반기', '하반기', '채용공고', // 인크루트 특화 제외 키워드 추가
-    'Just a moment', 'Verify you are human', 'Checking your browser' // 봇 차단 문구 추가
+    'Just a moment', 'Verify you are human', 'Checking your browser', // 봇 차단 문구 추가
+    '2024년', '2025년', '2026년', '2027년', '2028년', '2029년', '2030년' // 연도 관련 제외 키워드 추가
   ];
 
-  // 2. 대괄호 추출 시도
-  final bracketMatches = RegExp(r'\[(.+?)\]').allMatches(normalized);
+  final yearRegex = RegExp(r'^\d{4}년?$');
+
+  // 2. 대괄호 추출 시도 (반각 및 전각 대괄호 지원)
+  final bracketMatches = RegExp(r'[\[［](.+?)[\]］]').allMatches(normalized);
   for (final match in bracketMatches) {
     String content = (match.group(1) ?? '').trim();
-    content = _cleanCompanyName(content);
     
     // 알바몬 특유의 태그나 지역/형태 정보는 건너뜀
     bool shouldSkip = content.contains('#') || 
                      content.contains('/') || 
                      content.contains('원') || 
                      content.contains('만원') ||
+                     yearRegex.hasMatch(content) ||
                      skipKeywords.any((k) => content.contains(k));
     
-    if (!shouldSkip && content.length > 1 && content.length < 20) {
+    if (shouldSkip) continue;
+
+    content = _cleanCompanyName(content);
+    if (content.length > 1 && content.length < 20) {
       return content;
     }
   }
@@ -1914,10 +1975,11 @@ String _guessCompanyFromTitle(String title) {
   if (afterBracketText.isNotEmpty) {
     final parts = afterBracketText.split(RegExp(r'\s+'));
     for (var part in parts) {
-      part = _cleanCompanyName(part);
+      // 제외 키워드면 건너뜜
+      if (yearRegex.hasMatch(part) || skipKeywords.any((k) => part.contains(k))) continue;
 
-      // 너무 짧거나 제외 키워드면 건너뜀
-      if (part.length <= 1 || skipKeywords.any((k) => part.contains(k))) continue;
+      part = _cleanCompanyName(part);
+      if (part.length <= 1) continue;
       
       if (part.length < 20) {
         return part;

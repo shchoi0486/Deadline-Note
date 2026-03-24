@@ -851,12 +851,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get howToStep3Desc => '共有リストから「締め切りノート」アイコンを探してクリックしてください。';
 
   @override
-  String get howToStep4Title => '4. 自動入力の確認と保存';
-
-  @override
-  String get howToStep4Desc => '会社名、求人タイトル、締め切り日が自動的に抽出されます。確認後「保存」ボタンを押せば完了！';
-
-  @override
   String get encouragement1 => '残念ですが大丈夫です。次の機会があります。';
 
   @override
